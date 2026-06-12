@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: petcarepick-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: FRONTEND_ORIGIN
+        value: https://petcarepick.netlify.app
+      - key: KAKAO_REST_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_CHAT_MODEL
+        value: gpt-5.4-mini
+      - key: OPENAI_REPORT_MODEL
+        value: gpt-5.5
+      - key: OPENAI_STORE_RESPONSES
+        value: "false"
