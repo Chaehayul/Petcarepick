@@ -1,4 +1,5 @@
 const STORE_KEY = "petcarepick:app:v2";
+const SESSION_KEY = "petcarepick:session:v1";
 const app = document.querySelector("#app");
 const urlParams = new URLSearchParams(location.search);
 const requestedSurface = urlParams.get("surface");
@@ -111,6 +112,19 @@ function saveData() {
   localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
 }
 
+function setSession(value) {
+  localStorage.setItem(SESSION_KEY, value);
+}
+
+function isLoggedOut() {
+  return localStorage.getItem(SESSION_KEY) === "logged-out";
+}
+
+function entryRoute() {
+  if (!state.data.user || isLoggedOut()) return "signup";
+  return state.data.pets.length ? "app" : "pet-intro";
+}
+
 function clearOldCaches() {
   navigator.serviceWorker?.getRegistrations?.().then((items) => items.forEach((item) => item.unregister()));
   window.caches?.keys?.().then((keys) => keys.forEach((key) => window.caches.delete(key)));
@@ -119,6 +133,7 @@ function clearOldCaches() {
 function initializeRoute() {
   if (urlParams.get("onboarding") === "1") state.route = "intro";
   else if (!state.data.user) state.route = "splash";
+  else if (isLoggedOut()) state.route = "signup";
   else if (!state.data.pets.length) state.route = "pet-form";
   else state.route = "app";
   history.replaceState({ route: state.route, tab: state.tab }, "", location.href);
@@ -182,6 +197,9 @@ function icon(name) {
     alert: '<path d="M10.3 3.6 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>',
     location: '<path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
     send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+    logout: '<path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
+    download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+    replay: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   };
   return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.sparkles}</svg>`;
 }
@@ -216,7 +234,7 @@ function render() {
         render();
         return;
       }
-      navigate(state.data.user ? "app" : "signup", { replace: true });
+      navigate(entryRoute(), { replace: true });
     }, 4000);
   }
   if (state.route === "splash") window.setTimeout(() => {
@@ -363,7 +381,26 @@ function renderCalendar(pet) {
 }
 
 function renderMy(pet) {
-  return appShell(`<section class="page"><header class="page-header row"><div><h1>마이</h1><p>계정과 반려동물 정보를 관리해요.</p></div><button class="icon-button" data-route="chat" aria-label="AI 헬스 매니저">${icon("message")}</button></header><section class="profile-card"><div class="user-avatar">${escapeHtml(state.data.user.name.slice(0, 1))}</div><div><h2>${escapeHtml(state.data.user.name)}</h2><p>${escapeHtml(state.data.user.email)}</p></div><button data-edit-user>편집</button></section><section class="section-title"><div><h2>나의 반려동물</h2><p>${state.data.pets.length}/10마리</p></div><button data-new-pet>${icon("plus")} 추가</button></section><div class="pet-list">${state.data.pets.map((item) => `<button class="${item.id === pet.id ? "active" : ""}" data-select-pet="${item.id}"><span>${animalEmoji(item.type)}</span><div><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml(item.breed)} · ${item.age}살 · ${item.weight}kg</p></div>${item.id === pet.id ? icon("check") : icon("chevron")}</button>`).join("")}</div><button class="settings-row" data-edit-pet="${pet.id}"><span>${icon("edit")}</span><div><strong>선택한 프로필 수정</strong><p>질환, 알레르기, 체중 정보를 변경해요.</p></div>${icon("chevron")}</button><button class="settings-row" data-route="chat"><span>${icon("message")}</span><div><strong>AI 헬스 매니저</strong><p>현재 프로필과 기록을 바탕으로 답변해요.</p></div>${icon("chevron")}</button><button class="danger-text reset" data-reset>개발 데이터 전체 초기화</button></section>`);
+  const demo = state.data.user.demo === true;
+  return appShell(`<section class="page my-page">
+    <header class="page-header row"><div><h1>마이</h1><p>계정, 반려동물과 내 데이터를 관리해요.</p></div><button class="icon-button" data-route="chat" aria-label="AI 헬스 매니저">${icon("message")}</button></header>
+    <section class="profile-card"><div class="user-avatar">${escapeHtml(state.data.user.name.slice(0, 1))}</div><div><h2>${escapeHtml(state.data.user.name)} ${demo ? '<em class="demo-badge">DEMO</em>' : ""}</h2><p>${escapeHtml(state.data.user.email)}</p></div>${demo ? "" : "<button data-edit-user>편집</button>"}</section>
+    ${demo ? '<div class="demo-notice"><strong>포트폴리오 체험 모드</strong><p>현재 입력과 수정은 이 브라우저에만 저장되며 언제든 데모를 종료할 수 있어요.</p></div>' : ""}
+    <section class="section-title"><div><h2>나의 반려동물</h2><p>${state.data.pets.length}/10마리</p></div><button data-new-pet>${icon("plus")} 추가</button></section>
+    <div class="pet-list">${state.data.pets.map((item) => `<button class="${item.id === pet.id ? "active" : ""}" data-select-pet="${item.id}"><span>${animalEmoji(item.type)}</span><div><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml(item.breed)} · ${item.age}살 · ${item.weight}kg</p></div>${item.id === pet.id ? icon("check") : icon("chevron")}</button>`).join("")}</div>
+    <h2 class="settings-heading">서비스</h2>
+    <div class="settings-group">
+      <button class="settings-row" data-edit-pet="${pet.id}"><span>${icon("edit")}</span><div><strong>선택한 프로필 수정</strong><p>질환, 알레르기, 체중 정보를 변경해요.</p></div>${icon("chevron")}</button>
+      <button class="settings-row" data-route="chat"><span>${icon("message")}</span><div><strong>AI 헬스 매니저</strong><p>현재 프로필과 기록을 바탕으로 답변해요.</p></div>${icon("chevron")}</button>
+      <button class="settings-row" data-replay-onboarding><span>${icon("replay")}</span><div><strong>서비스 소개 다시 보기</strong><p>온보딩 화면과 주요 기능 소개를 확인해요.</p></div>${icon("chevron")}</button>
+    </div>
+    <h2 class="settings-heading">내 데이터</h2>
+    <div class="settings-group">
+      <button class="settings-row" data-export-data><span>${icon("download")}</span><div><strong>내 데이터 내려받기</strong><p>프로필, 기록과 일정을 JSON 파일로 저장해요.</p></div>${icon("chevron")}</button>
+      <button class="settings-row" data-logout><span>${icon("logout")}</span><div><strong>${demo ? "데모 종료" : "로그아웃"}</strong><p>${demo ? "샘플 데이터를 지우고 처음 화면으로 돌아가요." : "내 데이터는 보관하고 로그인 화면으로 돌아가요."}</p></div>${icon("chevron")}</button>
+    </div>
+    ${demo ? "" : '<section class="danger-zone"><strong>데이터 삭제</strong><p>이 브라우저에 저장된 계정, 반려동물, 건강 기록과 일정을 모두 삭제합니다.</p><button data-delete-account>모든 데이터 삭제</button></section>'}
+  </section>`);
 }
 
 function renderPetSwitch() {
@@ -501,7 +538,10 @@ function bindEvents() {
   app.querySelector("[data-delete-pet]")?.addEventListener("click", deletePet);
   app.querySelector("[data-edit-user]")?.addEventListener("click", editUser);
   app.querySelectorAll("[data-delete-event]").forEach((element) => element.addEventListener("click", () => deleteEvent(element.dataset.deleteEvent)));
-  app.querySelector("[data-reset]")?.addEventListener("click", resetData);
+  app.querySelector("[data-logout]")?.addEventListener("click", logout);
+  app.querySelector("[data-replay-onboarding]")?.addEventListener("click", replayOnboarding);
+  app.querySelector("[data-export-data]")?.addEventListener("click", exportUserData);
+  app.querySelector("[data-delete-account]")?.addEventListener("click", deleteAllData);
 }
 
 function addPortfolioDemoEntry() {
@@ -528,8 +568,8 @@ function addOnboardingSkip() {
   skip.type = "button";
   skip.className = "onboarding-skip";
   skip.dataset.onboardingSkip = "";
-  skip.textContent = state.data.user ? "건너뛰고 홈으로" : "건너뛰기";
-  skip.addEventListener("click", () => navigate(state.data.user ? "app" : "signup"));
+  skip.textContent = entryRoute() === "app" ? "건너뛰고 홈으로" : "건너뛰기";
+  skip.addEventListener("click", () => navigate(entryRoute()));
   intro.prepend(skip);
 }
 
@@ -599,6 +639,7 @@ function startPortfolioDemo() {
   };
   state.selectedPetId = petId;
   state.tab = "home";
+  setSession("demo");
   saveData();
   navigate("app");
   showToast("포트폴리오 데모로 시작했어요.");
@@ -713,6 +754,7 @@ function submitLogin(event) {
   const form = new FormData(event.currentTarget);
   const email = String(form.get("email")).trim();
   if (!state.data.user || state.data.user.email !== email) return showToast("가입된 계정을 찾을 수 없어요.");
+  setSession("active");
   navigate(state.data.pets.length ? "app" : "pet-intro");
 }
 
@@ -723,6 +765,7 @@ function submitVerification(event) {
   if (code !== state.verificationCode) return showToast("인증번호를 다시 확인해주세요.");
   state.data.user = state.pendingUser;
   state.pendingUser = null;
+  setSession("active");
   saveData();
   navigate("pet-intro");
 }
@@ -928,13 +971,52 @@ function editUser() {
   showToast("계정 정보가 수정됐어요.");
 }
 
-function resetData() {
-  if (!confirm("입력한 사용자, 반려동물, 기록, 일정을 모두 초기화할까요?")) return;
+function logout() {
+  if (state.data.user?.demo) {
+    localStorage.removeItem(STORE_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    state.data = emptyData();
+    state.selectedPetId = "";
+    state.tab = "home";
+    state.onboardingStep = 0;
+    navigate("intro", { replace: true });
+    return;
+  }
+  setSession("logged-out");
+  state.tab = "home";
+  navigate("signup", { replace: true });
+}
+
+function replayOnboarding() {
+  state.onboardingStep = 0;
+  navigate("intro");
+}
+
+function exportUserData() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    data: state.data,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `petcarepick-${localDate()}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast("내 데이터 파일을 준비했어요.");
+}
+
+function deleteAllData() {
+  if (!confirm("계정, 반려동물, 건강 기록과 일정을 모두 삭제할까요? 이 작업은 되돌릴 수 없어요.")) return;
   localStorage.removeItem(STORE_KEY);
+  localStorage.removeItem(SESSION_KEY);
   state.data = emptyData();
   state.selectedPetId = "";
   state.tab = "home";
-  navigate("intro");
+  state.onboardingStep = 0;
+  navigate("intro", { replace: true });
 }
 
 function recordsForDate(petId, date) {
