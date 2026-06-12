@@ -203,13 +203,20 @@ function render() {
   else if (state.route === "product") app.innerHTML = renderProduct();
   else app.innerHTML = renderApp();
   bindEvents();
-  if (state.route === "intro") addOnboardingSkip();
+  if (state.route === "intro") {
+    addOnboardingSkip();
+    simplifyOnboardingActions();
+  }
   if (state.route === "signup") addPortfolioDemoEntry();
-  if (state.route === "intro" && state.onboardingStep < 2) {
+  if (state.route === "intro") {
     onboardingTimer = window.setTimeout(() => {
       if (state.route !== "intro") return;
-      state.onboardingStep += 1;
-      render();
+      if (state.onboardingStep < 2) {
+        state.onboardingStep += 1;
+        render();
+        return;
+      }
+      navigate(state.data.user ? "app" : "signup", { replace: true });
     }, 4000);
   }
   if (state.route === "splash") window.setTimeout(() => {
@@ -524,6 +531,11 @@ function addOnboardingSkip() {
   skip.textContent = state.data.user ? "건너뛰고 홈으로" : "건너뛰기";
   skip.addEventListener("click", () => navigate(state.data.user ? "app" : "signup"));
   intro.prepend(skip);
+}
+
+function simplifyOnboardingActions() {
+  app.querySelectorAll(".onboarding-actions > .primary, .onboarding-actions > .link")
+    .forEach((element) => element.remove());
 }
 
 function startPortfolioDemo() {
