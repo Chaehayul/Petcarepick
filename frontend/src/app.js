@@ -53,6 +53,7 @@ const state = {
   hospitalProvider: "",
   showEventForm: false,
   editingEventId: "",
+  calendarMonth: localDate().slice(0, 7),
   aiStatus: "unknown",
   aiError: "",
   chatSending: false,
@@ -383,12 +384,13 @@ function renderProductCard(product, pet, index) {
 
 function renderCalendar(pet) {
   const events = state.data.events.filter((event) => event.petId === pet.id).sort((a, b) => a.date.localeCompare(b.date));
+  const monthEvents = events.filter((event) => event.date.startsWith(state.calendarMonth));
   return appShell(`<section class="page calendar-page">
     <header class="page-header row"><div><h1>캘린더</h1><p>${escapeHtml(pet.name)}의 건강 일정</p></div><button class="text-action" data-toggle-event>${state.showEventForm ? "닫기" : "+ 일정 추가"}</button></header>
     ${renderMonthCalendar(events)}
     ${state.showEventForm ? renderEventForm(events.find((event) => event.id === state.editingEventId)) : ""}
-    <section class="section-title"><div><h2>다가오는 일정</h2><p>${events.length}개</p></div></section>
-    <section class="timeline">${events.map((event) => `<article><i></i><time>${formatDate(event.date)}<small>${event.time || "시간 미정"}</small></time><div><em>${escapeHtml(event.type)}</em><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.memo || `${pet.name} 일정`)}</p></div><div class="event-actions"><button data-edit-event="${event.id}" aria-label="일정 수정">${icon("edit")}</button><button data-delete-event="${event.id}" aria-label="일정 삭제">${icon("trash")}</button></div></article>`).join("") || '<div class="empty-state"><strong>등록된 일정이 없어요.</strong><p>예방접종이나 병원 일정을 추가해보세요.</p></div>'}</section>
+    <section class="section-title"><div><h2>${Number(state.calendarMonth.slice(5))}월 전체 일정</h2><p>${monthEvents.length}개</p></div></section>
+    <section class="timeline">${monthEvents.map((event) => `<article><i></i><time>${formatDate(event.date)}<small>${event.time || "시간 미정"}</small></time><div><em>${escapeHtml(event.type)}</em><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.memo || `${pet.name} 일정`)}</p></div><div class="event-actions"><button data-edit-event="${event.id}" aria-label="일정 수정">${icon("edit")}</button><button data-delete-event="${event.id}" aria-label="일정 삭제">${icon("trash")}</button></div></article>`).join("") || '<div class="empty-state"><strong>이 달에 등록된 일정이 없어요.</strong><p>예방접종이나 병원 일정을 추가해보세요.</p></div>'}</section>
   </section>`);
 }
 
@@ -544,6 +546,11 @@ function bindEvents() {
     render();
   });
   app.querySelector("[data-cancel-event]")?.addEventListener("click", closeEventForm);
+  app.querySelectorAll("[data-calendar-shift]").forEach((element) => element.addEventListener("click", () => shiftCalendarMonth(Number(element.dataset.calendarShift))));
+  app.querySelector("[data-calendar-today]")?.addEventListener("click", () => {
+    state.calendarMonth = localDate().slice(0, 7);
+    render();
+  });
   app.querySelectorAll("[data-edit-event]").forEach((element) => element.addEventListener("click", () => {
     state.editingEventId = element.dataset.editEvent;
     state.showEventForm = true;
@@ -1245,20 +1252,38 @@ function recordEmoji(category) {
 
 function renderMonthCalendar(events) {
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const [yearValue, monthValue] = state.calendarMonth.split("-").map(Number);
+  const year = yearValue;
+  const month = monthValue - 1;
   const firstDay = new Date(year, month, 1).getDay();
   const lastDate = new Date(year, month + 1, 0).getDate();
-  const eventDays = new Set(events.filter((event) => event.date.slice(0, 7) === localDate().slice(0, 7)).map((event) => Number(event.date.slice(8))));
+  const eventCounts = events
+    .filter((event) => event.date.startsWith(state.calendarMonth))
+    .reduce((counts, event) => {
+      const day = Number(event.date.slice(8));
+      counts.set(day, (counts.get(day) || 0) + 1);
+      return counts;
+    }, new Map());
   const days = [
     ...Array.from({ length: firstDay }, () => "<span></span>"),
     ...Array.from({ length: lastDate }, (_, index) => {
       const day = index + 1;
-      const isToday = day === today.getDate();
-      return `<b class="${isToday ? "today" : ""} ${eventDays.has(day) ? "has-event" : ""}">${day}</b>`;
+      const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+      const eventCount = eventCounts.get(day) || 0;
+      return `<b class="${isToday ? "today" : ""} ${eventCount ? "has-event" : ""}">${day}${eventCount ? `<i aria-label="일정 ${eventCount}개"></i>` : ""}</b>`;
     }),
   ].join("");
-  return `<section class="month-calendar"><header><h2>${year}년 ${month + 1}월</h2></header><div class="weekdays">${["일", "월", "화", "수", "목", "금", "토"].map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${days}</div></section>`;
+  const currentMonth = state.calendarMonth === localDate().slice(0, 7);
+  return `<section class="month-calendar"><header><button data-calendar-shift="-1" aria-label="이전 달">‹</button><h2>${year}년 ${month + 1}월</h2><button data-calendar-shift="1" aria-label="다음 달">›</button></header>${currentMonth ? "" : '<button class="calendar-today" data-calendar-today>이번 달로 돌아가기</button>'}<div class="weekdays">${["일", "월", "화", "수", "목", "금", "토"].map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-days">${days}</div></section>`;
+}
+
+function shiftCalendarMonth(offset) {
+  const [year, month] = state.calendarMonth.split("-").map(Number);
+  const date = new Date(year, month - 1 + offset, 1);
+  state.calendarMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  state.showEventForm = false;
+  state.editingEventId = "";
+  render();
 }
 
 function weightSeries(pet) {
