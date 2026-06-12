@@ -9,6 +9,7 @@ const surface = requestedSurface === "app" || requestedSurface === "web"
 const API_BASE_URL = location.hostname === "localhost" || location.hostname === "127.0.0.1"
   ? "http://localhost:8787/api"
   : "/api";
+let onboardingTimer = 0;
 
 const tabs = [
   ["home", "홈", "home"],
@@ -186,6 +187,7 @@ function icon(name) {
 }
 
 function render() {
+  window.clearTimeout(onboardingTimer);
   if (surface === "web" && state.route === "platform") app.innerHTML = renderPlatform();
   else if (state.route === "splash") app.innerHTML = renderSplash();
   else if (state.route === "intro") app.innerHTML = renderIntro();
@@ -201,6 +203,15 @@ function render() {
   else if (state.route === "product") app.innerHTML = renderProduct();
   else app.innerHTML = renderApp();
   bindEvents();
+  if (state.route === "intro") addOnboardingSkip();
+  if (state.route === "signup") addPortfolioDemoEntry();
+  if (state.route === "intro" && state.onboardingStep < 2) {
+    onboardingTimer = window.setTimeout(() => {
+      if (state.route !== "intro") return;
+      state.onboardingStep += 1;
+      render();
+    }, 4000);
+  }
   if (state.route === "splash") window.setTimeout(() => {
     if (state.route === "splash") navigate("intro", { replace: true });
   }, 1200);
@@ -408,6 +419,10 @@ function bindEvents() {
     state.onboardingStep = Math.min(2, state.onboardingStep + 1);
     render();
   });
+  app.querySelectorAll("[data-onboarding-step]").forEach((element) => element.addEventListener("click", () => {
+    state.onboardingStep = Number(element.dataset.onboardingStep);
+    render();
+  }));
   app.querySelectorAll("[data-auth-mode]").forEach((element) => element.addEventListener("click", () => {
     state.authMode = element.dataset.authMode;
     render();
@@ -480,6 +495,101 @@ function bindEvents() {
   app.querySelector("[data-edit-user]")?.addEventListener("click", editUser);
   app.querySelectorAll("[data-delete-event]").forEach((element) => element.addEventListener("click", () => deleteEvent(element.dataset.deleteEvent)));
   app.querySelector("[data-reset]")?.addEventListener("click", resetData);
+}
+
+function addPortfolioDemoEntry() {
+  const authPage = app.querySelector(".auth-page");
+  if (!authPage || authPage.querySelector("[data-demo-login]")) return;
+  const demo = document.createElement("section");
+  demo.className = "portfolio-demo";
+  demo.innerHTML = `
+    <span>PORTFOLIO DEMO</span>
+    <div>
+      <strong>가입 없이 주요 기능을 확인해보세요</strong>
+      <p>반려동물 프로필, 건강 기록, 맞춤 추천과 리포트를 바로 체험할 수 있어요.</p>
+    </div>
+    <button type="button" data-demo-login>데모로 시작</button>
+  `;
+  authPage.append(demo);
+  demo.querySelector("[data-demo-login]").addEventListener("click", startPortfolioDemo);
+}
+
+function addOnboardingSkip() {
+  const intro = app.querySelector(".intro");
+  if (!intro || intro.querySelector("[data-onboarding-skip]")) return;
+  const skip = document.createElement("button");
+  skip.type = "button";
+  skip.className = "onboarding-skip";
+  skip.dataset.onboardingSkip = "";
+  skip.textContent = state.data.user ? "건너뛰고 홈으로" : "건너뛰기";
+  skip.addEventListener("click", () => navigate(state.data.user ? "app" : "signup"));
+  intro.prepend(skip);
+}
+
+function startPortfolioDemo() {
+  const today = localDate();
+  const day = (offset) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return localDate(date);
+  };
+  const petId = "portfolio-demo-pet";
+  const record = (category, value, detail, date = today) => ({
+    id: uid("demo-record"),
+    petId,
+    date,
+    category,
+    value,
+    detail,
+    updatedAt: new Date().toISOString(),
+  });
+
+  state.data = {
+    ...emptyData(),
+    user: { name: "포트폴리오 방문자", email: "demo@petcarepick.app", demo: true },
+    pets: [{
+      id: petId,
+      name: "뭉치",
+      type: "강아지",
+      breed: "말티즈",
+      age: 4,
+      weight: 4.2,
+      gender: "남아",
+      neutered: "했어요",
+      conditions: ["피부염"],
+      allergies: ["닭고기"],
+      routines: ["아침 식사", "저녁 산책"],
+      reminders: { morning: true, evening: true, anomaly: true },
+      demo: true,
+    }],
+    records: [
+      record("meal", 82, "아침·저녁 식사", day(-2)),
+      record("activity", 32, "산책", day(-2)),
+      record("weight", 4.2, "", day(-2)),
+      record("meal", 76, "평소보다 조금 적게 먹음", day(-1)),
+      record("activity", 28, "산책", day(-1)),
+      record("weight", 4.2, "", day(-1)),
+      record("meal", 80, "아침 식사", today),
+      record("activity", 30, "동네 산책", today),
+      record("weight", 4.2, "", today),
+    ],
+    events: [{
+      id: "portfolio-demo-event",
+      petId,
+      type: "건강검진",
+      title: "정기 건강검진",
+      date: day(7),
+      time: "10:30",
+      memo: "최근 건강 기록 상담",
+    }],
+    feedback: [],
+    chats: [{ from: "ai", text: "안녕하세요! 뭉치의 프로필과 최근 건강 기록을 바탕으로 함께 살펴볼게요." }],
+  };
+  state.selectedPetId = petId;
+  state.tab = "home";
+  saveData();
+  navigate("app");
+  showToast("포트폴리오 데모로 시작했어요.");
 }
 
 async function loadNearbyHospitals() {

@@ -47,6 +47,8 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
 .icon-button { width: 42px; height: 42px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 12px; color: var(--brand); background: var(--brand-soft); }
 
 .intro { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: clamp(52px,9vh,100px) 28px 42px; color: #fff; text-align: center; background: var(--brand); }
+.onboarding-skip { position: absolute; top: max(22px,env(safe-area-inset-top)); right: 22px; z-index: 2; padding: 10px 4px; color: rgba(255,255,255,.82); background: transparent; font-size: 13px; font-weight: 800; }
+.onboarding-white .onboarding-skip { color: #9497a5; }
 .onboarding-content { margin: auto 0; }
 .onboarding-actions { width: min(100%,380px); display: grid; justify-items: stretch; gap: 12px; }
 .brand-symbol { width: 112px; height: 112px; display: grid; place-items: center; border-radius: 30px; background: rgba(255,255,255,.17); font-size: 46px; }
@@ -83,6 +85,12 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
 .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 26px; padding: 4px; border-radius: 14px; background: #f0f0f2; }
 .auth-tabs button { min-height: 54px; border-radius: 12px; color: #aaa; background: transparent; font-weight: 800; }
 .auth-tabs button.active { color: var(--brand); background: #fff; box-shadow: var(--shadow); }
+.portfolio-demo { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--line); }
+.portfolio-demo > span { display: inline-block; margin-bottom: 10px; color: var(--brand); font-size: 11px; font-weight: 900; letter-spacing: 0; }
+.portfolio-demo > div strong { display: block; font-size: 17px; }
+.portfolio-demo > div p { margin: 6px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.portfolio-demo > button { width: 100%; min-height: 52px; border: 1px solid var(--brand); border-radius: 14px; color: var(--brand); background: #fff; font-weight: 850; }
+.portfolio-demo > button:hover { background: var(--brand-soft); }
 
 .verify-page { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 34px 26px; text-align: center; }
 .verify-icon { width: 132px; height: 132px; display: grid; place-items: center; border-radius: 50%; background: var(--brand-soft); font-size: 56px; }
