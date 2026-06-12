@@ -47,11 +47,16 @@ npm run dev:frontend
 PORT=8787
 FRONTEND_ORIGIN=http://localhost:4173
 KAKAO_REST_API_KEY=
+MAP_PROVIDER=openstreetmap
 OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=gpt-5.4-mini
 OPENAI_REPORT_MODEL=gpt-5.5
 OPENAI_STORE_RESPONSES=false
 ```
+
+- `OPENAI_API_KEY`가 없으면 AI 채팅은 화면에 `기본 분석 모드`로 표시됩니다.
+- 병원 검색은 기본적으로 키가 필요 없는 OpenStreetMap을 사용하고, 결과는 네이버 지도 검색으로 열립니다.
+- 카카오 로컬 API 승인이 끝난 뒤에만 `MAP_PROVIDER=kakao`로 변경하세요.
 
 `OPENAI_API_KEY`와 `KAKAO_REST_API_KEY`는 프런트엔드 코드에 넣지 않습니다.
 

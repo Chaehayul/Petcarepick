@@ -16,7 +16,15 @@ const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, `http://${request.headers.host}`);
     if (request.method === "GET" && url.pathname === "/api/health") {
-      return send(response, 200, { ok: true, service: "petcarepick-backend" });
+      return send(response, 200, {
+        ok: true,
+        service: "petcarepick-backend",
+        capabilities: {
+          ai: Boolean(process.env.OPENAI_API_KEY),
+          hospitals: "openstreetmap",
+          kakaoFallback: Boolean(process.env.KAKAO_REST_API_KEY),
+        },
+      });
     }
     if (request.method === "POST" && url.pathname === "/api/hospitals/nearby") {
       return send(response, 200, await findNearbyHospitals(await readJson(request)));
@@ -41,6 +49,9 @@ server.listen(port, () => {
 async function findNearbyHospitals({ latitude, longitude, radius = 5000 }) {
   requireValue(latitude, "latitude");
   requireValue(longitude, "longitude");
+  if (process.env.MAP_PROVIDER !== "kakao") {
+    return findOpenStreetMapHospitals(latitude, longitude, radius);
+  }
   const key = process.env.KAKAO_REST_API_KEY;
   if (!key) return findOpenStreetMapHospitals(latitude, longitude, radius);
   const params = new URLSearchParams({
@@ -177,19 +188,35 @@ async function createHealthReport({ pet, records = [] }) {
 
 async function openAIResponse(model, input) {
   const key = requireSecret("OPENAI_API_KEY");
-  const result = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      input,
-      store: process.env.OPENAI_STORE_RESPONSES === "true",
-    }),
-  });
-  if (!result.ok) throw httpError(502, "AI 응답을 생성하지 못했어요.");
+  let result;
+  try {
+    result = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        input,
+        store: process.env.OPENAI_STORE_RESPONSES === "true",
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+  } catch (error) {
+    throw httpError(504, error.name === "TimeoutError"
+      ? "OpenAI 응답 시간이 초과됐어요."
+      : "OpenAI 서버에 연결하지 못했어요.");
+  }
+  if (!result.ok) {
+    const error = await result.json().catch(() => ({}));
+    const upstreamMessage = error?.error?.message || "";
+    console.error("OpenAI API error:", result.status, upstreamMessage);
+    if (result.status === 401) throw httpError(502, "OpenAI API 키가 올바르지 않아요.");
+    if (result.status === 429) throw httpError(503, "OpenAI 사용 한도 또는 요청 한도를 확인해주세요.");
+    if (result.status === 404) throw httpError(502, `OpenAI 모델 설정을 확인해주세요: ${model}`);
+    throw httpError(502, "OpenAI 응답을 생성하지 못했어요.");
+  }
   const payload = await result.json();
   return payload.output_text || payload.output?.flatMap((item) => item.content || []).find((item) => item.type === "output_text")?.text || "";
 }

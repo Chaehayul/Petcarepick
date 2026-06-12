@@ -52,6 +52,10 @@ const state = {
   userLocation: null,
   hospitalProvider: "",
   showEventForm: false,
+  editingEventId: "",
+  aiStatus: "unknown",
+  aiError: "",
+  chatSending: false,
   onboardingStep: 0,
   authMode: "login",
   pendingUser: null,
@@ -200,6 +204,7 @@ function icon(name) {
     logout: '<path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
     download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
     replay: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+    close: '<path d="m6 6 12 12M18 6 6 18"/>',
   };
   return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.sparkles}</svg>`;
 }
@@ -221,6 +226,7 @@ function render() {
   else if (state.route === "product") app.innerHTML = renderProduct();
   else app.innerHTML = renderApp();
   bindEvents();
+  if (state.route === "chat" && state.aiStatus === "unknown") checkAiConnection();
   if (state.route === "intro") {
     addOnboardingSkip();
     simplifyOnboardingActions();
@@ -290,7 +296,7 @@ function renderIntro() {
 
 function renderSignup() {
   const signup = state.authMode === "signup";
-  return appShell(`<section class="page auth-page"><div class="auth-brand"><div class="brand-symbol">🐾</div><h1>PetCarePick</h1><p>${signup ? "처음 만나 반가워요!" : "다시 오신 것을 환영해요!"}</p></div><div class="auth-tabs"><button class="${signup ? "" : "active"}" data-auth-mode="login">로그인</button><button class="${signup ? "active" : ""}" data-auth-mode="signup">회원가입</button></div>${signup ? `<form class="form" data-signup><label>이름<input name="name" required maxlength="20" placeholder="이름 입력"></label><label>이메일<input name="email" type="email" required placeholder="이메일 입력"></label><label>비밀번호<input name="password" type="password" minlength="8" required placeholder="비밀번호 입력"></label><label>비밀번호 확인<input name="passwordConfirm" type="password" minlength="8" required placeholder="비밀번호 확인"></label><button class="primary">가입 완료</button></form>` : `<form class="form" data-login><label>별명 또는 이메일<input name="email" type="email" required placeholder="등록하신 이메일 입력"></label><label>비밀번호<input name="password" type="password" required placeholder="비밀번호 입력"></label><button class="primary">로그인</button></form>`}</section>`, { nav: false });
+  return appShell(`<section class="page auth-page"><div class="auth-brand"><div class="brand-symbol">🐾</div><h1>PetCarePick</h1><p>${signup ? "처음 만나 반가워요!" : "다시 오신 것을 환영해요!"}</p></div><div class="auth-tabs"><button class="${signup ? "" : "active"}" data-auth-mode="login">로그인</button><button class="${signup ? "active" : ""}" data-auth-mode="signup">회원가입</button></div>${signup ? `<form class="form" data-signup><label>이름<input name="name" autocomplete="name" required maxlength="20" placeholder="이름 입력"></label><label>이메일<input name="email" type="email" autocomplete="email" required placeholder="이메일 입력"></label><label>비밀번호<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="비밀번호 입력"></label><label>비밀번호 확인<input name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" required placeholder="비밀번호 확인"></label><button class="primary">가입 완료</button></form>` : `<form class="form" data-login><label>별명 또는 이메일<input name="email" type="email" autocomplete="email" required placeholder="등록하신 이메일 입력"></label><label>비밀번호<input name="password" type="password" autocomplete="current-password" required placeholder="비밀번호 입력"></label><button class="primary">로그인</button></form>`}</section>`, { nav: false });
 }
 
 function renderVerify() {
@@ -377,7 +383,26 @@ function renderProductCard(product, pet, index) {
 
 function renderCalendar(pet) {
   const events = state.data.events.filter((event) => event.petId === pet.id).sort((a, b) => a.date.localeCompare(b.date));
-  return appShell(`<section class="page calendar-page"><header class="page-header row"><div><h1>캘린더</h1><p>${escapeHtml(pet.name)}의 건강 일정</p></div><button class="text-action" data-toggle-event>${state.showEventForm ? "닫기" : "+ 일정 추가"}</button></header>${renderMonthCalendar(events)}${state.showEventForm ? `<form class="event-form" data-event-form><h2>일정 등록</h2><label>일정 종류<select name="type"><option>예방접종</option><option>건강검진</option><option>진료</option><option>복약</option><option>미용</option><option>기타</option></select></label><label>일정명<input name="title" required placeholder="예: 광견병 예방접종"></label><label>날짜<input name="date" type="date" value="${localDate()}" required></label><label>시간<input name="time" type="time" value="10:00"></label><label class="full">메모<input name="memo" placeholder="병원명이나 준비사항"></label><button class="primary full">${icon("plus")} 일정 저장</button></form>` : ""}<section class="section-title"><div><h2>이번 달 일정</h2><p>${events.filter((event) => event.date.slice(0, 7) === localDate().slice(0, 7)).length}개</p></div></section><section class="timeline">${events.map((event) => `<article><i></i><time>${formatDate(event.date)}<small>${event.time || ""}</small></time><div><em>${escapeHtml(event.type)}</em><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.memo || `${pet.name} 일정`)}</p></div><button class="icon-button" data-delete-event="${event.id}" aria-label="일정 삭제">${icon("trash")}</button></article>`).join("") || '<div class="empty-state"><strong>등록된 일정이 없어요.</strong><p>예방접종이나 병원 일정을 추가해보세요.</p></div>'}</section></section>`);
+  return appShell(`<section class="page calendar-page">
+    <header class="page-header row"><div><h1>캘린더</h1><p>${escapeHtml(pet.name)}의 건강 일정</p></div><button class="text-action" data-toggle-event>${state.showEventForm ? "닫기" : "+ 일정 추가"}</button></header>
+    ${renderMonthCalendar(events)}
+    ${state.showEventForm ? renderEventForm(events.find((event) => event.id === state.editingEventId)) : ""}
+    <section class="section-title"><div><h2>다가오는 일정</h2><p>${events.length}개</p></div></section>
+    <section class="timeline">${events.map((event) => `<article><i></i><time>${formatDate(event.date)}<small>${event.time || "시간 미정"}</small></time><div><em>${escapeHtml(event.type)}</em><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.memo || `${pet.name} 일정`)}</p></div><div class="event-actions"><button data-edit-event="${event.id}" aria-label="일정 수정">${icon("edit")}</button><button data-delete-event="${event.id}" aria-label="일정 삭제">${icon("trash")}</button></div></article>`).join("") || '<div class="empty-state"><strong>등록된 일정이 없어요.</strong><p>예방접종이나 병원 일정을 추가해보세요.</p></div>'}</section>
+  </section>`);
+}
+
+function renderEventForm(event) {
+  const selected = (type) => event?.type === type ? "selected" : "";
+  return `<form class="event-form" data-event-form>
+    <div class="event-form-heading"><h2>${event ? "일정 수정" : "일정 등록"}</h2><button type="button" data-cancel-event aria-label="닫기">${icon("close")}</button></div>
+    <label>일정 종류<select name="type">${["예방접종","건강검진","진료","복약","미용","기타"].map((type) => `<option ${selected(type)}>${type}</option>`).join("")}</select></label>
+    <label>일정명<input name="title" required maxlength="50" value="${escapeHtml(event?.title || "")}" placeholder="예: 광견병 예방접종"></label>
+    <label>날짜<input name="date" type="date" value="${event?.date || localDate()}" required></label>
+    <label>시간<input name="time" type="time" value="${event?.time || "10:00"}"></label>
+    <label class="full">메모<input name="memo" maxlength="120" value="${escapeHtml(event?.memo || "")}" placeholder="병원명이나 준비사항"></label>
+    <button class="primary full">${event ? icon("check") : icon("plus")} ${event ? "변경사항 저장" : "일정 저장"}</button>
+  </form>`;
 }
 
 function renderMy(pet) {
@@ -415,7 +440,12 @@ function renderChat() {
     `최근 활동량을 분석해줘`,
     `병원에 가야 하는 신호가 뭐야?`,
   ] : ["반려동물 프로필은 어떻게 등록해?", "건강 기록은 어떻게 활용돼?"];
-  return appShell(`<section class="chat-page"><header class="chat-header"><button class="icon-button plain" data-back aria-label="뒤로">${icon("back")}</button><div class="chat-ai-avatar">✦</div><div><h1>AI 헬스 매니저</h1><p><i></i>${pet ? `${escapeHtml(pet.name)} 프로필로 상담 중` : "프로필을 등록해주세요"}</p></div></header>${pet ? `<button class="chat-pet-context" data-route="pet-switch"><span>${animalEmoji(pet.type)}</span><div><strong>${escapeHtml(pet.name)}</strong><small>${escapeHtml(pet.breed)} · ${pet.age}살 · ${pet.weight}kg</small></div><em>변경</em></button>` : ""}<div class="chat-list"><section class="quick-prompts"><strong>무엇을 도와드릴까요?</strong><div>${prompts.map((prompt) => `<button data-chat-prompt="${escapeHtml(prompt)}">${escapeHtml(prompt)}</button>`).join("")}</div></section>${state.data.chats.map((message) => `<div class="chat-message ${message.from}"><span>${message.from === "ai" ? "✦" : escapeHtml(state.data.user?.name?.slice(0, 1) || "나")}</span><article><small>${message.from === "ai" ? "AI 헬스 매니저" : "보호자"}</small><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p></article></div>`).join("")}</div><footer class="chat-composer"><p>AI 답변은 참고용이며 진단을 대신하지 않아요.</p><form class="chat-form" data-chat-form><textarea name="message" rows="1" maxlength="500" autocomplete="off" placeholder="건강·영양 고민을 물어보세요"></textarea><button aria-label="전송">${icon("send")}</button></form></footer></section>`, { nav: false, compact: true });
+  const status = state.aiStatus === "connected"
+    ? '<span class="ai-connection connected">OpenAI 연결됨</span>'
+    : state.aiStatus === "unavailable"
+      ? '<button class="ai-connection unavailable" data-check-ai>기본 분석 모드 · 다시 확인</button>'
+      : '<button class="ai-connection checking" data-check-ai>AI 연결 확인 중</button>';
+  return appShell(`<section class="chat-page"><header class="chat-header"><button class="icon-button plain" data-back aria-label="뒤로">${icon("back")}</button><div class="chat-ai-avatar">✦</div><div><h1>AI 헬스 매니저</h1><p><i></i>${pet ? `${escapeHtml(pet.name)} 프로필로 상담 중` : "프로필을 등록해주세요"}</p></div>${status}</header>${state.aiError ? `<div class="chat-system-notice">${escapeHtml(state.aiError)}</div>` : ""}${pet ? `<button class="chat-pet-context" data-route="pet-switch"><span>${animalEmoji(pet.type)}</span><div><strong>${escapeHtml(pet.name)}</strong><small>${escapeHtml(pet.breed)} · ${pet.age}살 · ${pet.weight}kg</small></div><em>변경</em></button>` : ""}<div class="chat-list"><section class="quick-prompts"><strong>무엇을 도와드릴까요?</strong><div>${prompts.map((prompt) => `<button data-chat-prompt="${escapeHtml(prompt)}" ${state.chatSending ? "disabled" : ""}>${escapeHtml(prompt)}</button>`).join("")}</div></section>${state.data.chats.map((message) => `<div class="chat-message ${message.from}"><span>${message.from === "ai" ? "✦" : escapeHtml(state.data.user?.name?.slice(0, 1) || "나")}</span><article><small>${message.from === "ai" ? "AI 헬스 매니저" : "보호자"}</small><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p></article></div>`).join("")}</div><footer class="chat-composer"><p>AI 답변은 참고용이며 진단을 대신하지 않아요.</p><form class="chat-form" data-chat-form><textarea name="message" rows="1" maxlength="500" autocomplete="off" placeholder="건강·영양 고민을 물어보세요" ${state.chatSending ? "disabled" : ""}></textarea><button aria-label="전송" ${state.chatSending ? "disabled" : ""}>${state.chatSending ? '<span class="mini-loader"></span>' : icon("send")}</button></form></footer></section>`, { nav: false, compact: true });
 }
 
 function renderReport() {
@@ -453,7 +483,7 @@ function renderHospitals() {
   if (!state.nearbyHospitals.length) {
     return `<section class="location-panel">${icon("location")}<h2>반경 5km에 등록된 병원이 없어요</h2><p>검색 범위를 바꾸려면 잠시 후 다시 시도해주세요.</p><button class="primary" data-find-hospitals>다시 검색</button></section>`;
   }
-  return `<div class="location-summary">${icon("location")}<span>현재 위치 기준 · 가까운 순</span><button data-find-hospitals>새로고침</button></div><div class="hospital-list">${state.nearbyHospitals.map((hospital) => `<article><div><small>${formatDistance(hospital.distance)}${hospital.hours ? ` · ${escapeHtml(hospital.hours)}` : ""}</small><h2>${escapeHtml(hospital.name)}</h2><p>${escapeHtml(hospital.address || "주소 정보 없음")}</p></div><div class="hospital-actions">${hospital.phone ? `<a href="tel:${encodeURIComponent(hospital.phone)}">전화</a>` : ""}<a href="${hospital.placeUrl || `https://www.openstreetmap.org/?mlat=${hospital.lat}&mlon=${hospital.lon}#map=17/${hospital.lat}/${hospital.lon}`}" target="_blank" rel="noopener">지도</a></div></article>`).join("")}</div><p class="data-credit">병원 정보: ${state.hospitalProvider === "kakao" ? "Kakao Local" : "OpenStreetMap contributors"}</p>`;
+  return `<div class="location-summary">${icon("location")}<span>현재 위치 기준 · 가까운 순</span><button data-find-hospitals>새로고침</button></div><div class="hospital-list">${state.nearbyHospitals.map((hospital) => `<article><div><small>${formatDistance(hospital.distance)}${hospital.hours ? ` · ${escapeHtml(hospital.hours)}` : ""}</small><h2>${escapeHtml(hospital.name)}</h2><p>${escapeHtml(hospital.address || "주소 정보 없음")}</p></div><div class="hospital-actions">${hospital.phone ? `<a href="tel:${encodeURIComponent(hospital.phone)}">전화</a>` : ""}<a href="${naverMapSearchUrl(hospital)}" target="_blank" rel="noopener">지도 보기</a></div></article>`).join("")}</div><p class="data-credit">병원 검색: OpenStreetMap · 지도 열기: 네이버 지도</p>`;
 }
 
 function bindEvents() {
@@ -502,6 +532,7 @@ function bindEvents() {
   app.querySelector("[data-event-form]")?.addEventListener("submit", submitEvent);
   app.querySelector("[data-chat-form]")?.addEventListener("submit", submitChat);
   app.querySelectorAll("[data-chat-prompt]").forEach((element) => element.addEventListener("click", () => sendChatText(element.dataset.chatPrompt)));
+  app.querySelector("[data-check-ai]")?.addEventListener("click", checkAiConnection);
 
   app.querySelector("[data-record-date]")?.addEventListener("change", (event) => {
     state.recordDate = event.target.value;
@@ -509,8 +540,16 @@ function bindEvents() {
   });
   app.querySelector("[data-toggle-event]")?.addEventListener("click", () => {
     state.showEventForm = !state.showEventForm;
+    state.editingEventId = "";
     render();
   });
+  app.querySelector("[data-cancel-event]")?.addEventListener("click", closeEventForm);
+  app.querySelectorAll("[data-edit-event]").forEach((element) => element.addEventListener("click", () => {
+    state.editingEventId = element.dataset.editEvent;
+    state.showEventForm = true;
+    render();
+    app.querySelector(".event-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
   app.querySelectorAll("[data-mode]").forEach((element) => element.addEventListener("click", () => {
     state.recommendationMode = element.dataset.mode;
     render();
@@ -879,10 +918,29 @@ function submitRecord(event) {
 function submitEvent(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
-  state.data.events.push({ id: uid("event"), petId: currentPet().id, type: form.get("type"), title: form.get("title"), date: form.get("date"), time: form.get("time"), memo: form.get("memo") });
+  const wasEditing = Boolean(state.editingEventId);
+  const nextEvent = {
+    id: state.editingEventId || uid("event"),
+    petId: currentPet().id,
+    type: String(form.get("type")),
+    title: String(form.get("title")).trim(),
+    date: String(form.get("date")),
+    time: String(form.get("time") || ""),
+    memo: String(form.get("memo") || "").trim(),
+  };
+  state.data.events = state.editingEventId
+    ? state.data.events.map((item) => item.id === state.editingEventId ? nextEvent : item)
+    : [...state.data.events, nextEvent];
   saveData();
   state.showEventForm = false;
-  showToast("일정이 추가됐어요.");
+  state.editingEventId = "";
+  showToast(wasEditing ? "일정이 수정됐어요." : "일정이 저장됐어요.");
+}
+
+function closeEventForm() {
+  state.showEventForm = false;
+  state.editingEventId = "";
+  render();
 }
 
 async function submitChat(event) {
@@ -894,8 +952,10 @@ async function submitChat(event) {
 }
 
 async function sendChatText(text) {
+  if (state.chatSending) return;
+  state.chatSending = true;
+  state.aiError = "";
   state.data.chats.push({ from: "user", text });
-  state.data.chats.push({ from: "ai", text: "답변을 준비하고 있어요..." });
   saveData();
   render();
   scrollChatToBottom();
@@ -907,9 +967,14 @@ async function sendChatText(text) {
       recentRecords: state.data.records.filter((record) => record.petId === pet?.id).slice(-50),
       conversation: state.data.chats.slice(-8),
     });
-    state.data.chats[state.data.chats.length - 1] = { from: "ai", text: result.message };
-  } catch {
-    state.data.chats[state.data.chats.length - 1] = { from: "ai", text: chatReply(text, currentPet()) };
+    state.data.chats.push({ from: "ai", text: result.message });
+    state.aiStatus = "connected";
+  } catch (error) {
+    state.aiStatus = "unavailable";
+    state.aiError = `${error.message} 기본 건강 분석으로 답변했어요.`;
+    state.data.chats.push({ from: "ai", text: `[기본 분석]\n${chatReply(text, currentPet())}` });
+  } finally {
+    state.chatSending = false;
   }
   saveData();
   render();
@@ -932,6 +997,28 @@ async function apiPost(path, body) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "API request failed");
   return payload;
+}
+
+async function apiGet(path) {
+  const response = await fetch(`${API_BASE_URL}${path}`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "API request failed");
+  return payload;
+}
+
+async function checkAiConnection() {
+  state.aiStatus = "checking";
+  state.aiError = "";
+  render();
+  try {
+    const result = await apiGet("/health");
+    state.aiStatus = result.capabilities?.ai ? "connected" : "unavailable";
+    if (!result.capabilities?.ai) state.aiError = "OpenAI API 키가 서버에 설정되지 않아 기본 분석 모드로 동작해요.";
+  } catch {
+    state.aiStatus = "unavailable";
+    state.aiError = "AI 서버 상태를 확인하지 못했어요. 기본 분석 모드로 계속 사용할 수 있어요.";
+  }
+  render();
 }
 
 function saveFeedback(element) {
@@ -959,6 +1046,11 @@ function deleteEvent(id) {
   state.data.events = state.data.events.filter((event) => event.id !== id);
   saveData();
   showToast("일정이 삭제됐어요.");
+}
+
+function naverMapSearchUrl(hospital) {
+  const query = [hospital.name, hospital.address].filter(Boolean).join(" ");
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
 }
 
 function editUser() {
