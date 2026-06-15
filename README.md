@@ -1,74 +1,110 @@
 # Petcarepick
 
-반려동물 프로필과 일상 기록을 기반으로 맞춤 영양 추천, 건강 리포트, 위치 기반 동물병원 검색, AI 헬스 매니저를 제공하는 모노레포입니다.
+반려동물 프로필과 일상 건강 기록을 기반으로 맞춤 영양 추천, 건강 리포트,
+위치 기반 동물병원 검색, 일정 관리, AI 헬스 상담을 제공하는 펫 헬스케어 플랫폼입니다.
 
-## 구조
+## Architecture
 
 ```text
 Petcarepick/
-├─ frontend/                 # 반응형 웹/PWA
+├─ frontend/                 # 반응형 PWA, Netlify 배포
 │  ├─ assets/
 │  ├─ src/
-│  ├─ .env.example
-│  └─ package.json
-├─ backend/                  # 비밀 키와 외부 API 연동
-│  ├─ src/server.js
-│  ├─ .env
-│  ├─ .env.example
-│  └─ package.json
-├─ package.json
-└─ netlify.toml
+│  └─ .env.example
+├─ backend/                  # Express + TypeScript REST API, Render 배포
+│  ├─ prisma/
+│  │  ├─ migrations/
+│  │  └─ schema.prisma
+│  ├─ src/
+│  │  ├─ app.ts
+│  │  ├─ auth.ts
+│  │  ├─ db.ts
+│  │  ├─ external.ts
+│  │  └─ server.ts
+│  ├─ tests/
+│  └─ .env.example
+├─ netlify.toml
+└─ render.yaml
 ```
 
-## 로컬 실행
+## Backend stack
 
-터미널 1:
+- Express 5, TypeScript, Zod
+- PostgreSQL, Prisma ORM
+- JWT access token, refresh token rotation, bcrypt
+- Helmet, CORS allowlist, rate limiting, request ID logging
+- OpenAI Responses API
+- OpenStreetMap Overpass API, Kakao Local API fallback
+- Vitest, Supertest
+
+## Local development
 
 ```powershell
+npm install
+Copy-Item backend/.env.example backend/.env
 npm run dev:backend
 ```
 
-터미널 2:
+새 터미널에서 프론트엔드를 실행합니다.
 
 ```powershell
 npm run dev:frontend
 ```
 
-- 프런트엔드: `http://localhost:4173`
-- 백엔드 상태 확인: `http://localhost:8787/api/health`
+- Frontend: `http://localhost:4173`
+- Backend health: `http://localhost:8787/api/health`
+- OpenAPI document: `http://localhost:8787/api/openapi.json`
 
-## 환경변수
-
-`frontend/.env.example`에는 브라우저에 공개 가능한 값만 둡니다.
-
-`backend/.env`에는 다음 비밀 키를 둡니다.
+## Environment variables
 
 ```env
 PORT=8787
+NODE_ENV=development
 FRONTEND_ORIGIN=http://localhost:4173
-KAKAO_REST_API_KEY=
-MAP_PROVIDER=openstreetmap
+
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
+JWT_SECRET=replace-with-a-long-random-secret
+ACCESS_TOKEN_TTL=15m
+REFRESH_TOKEN_DAYS=30
+
 OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=gpt-5.4-mini
 OPENAI_REPORT_MODEL=gpt-5.5
 OPENAI_STORE_RESPONSES=false
+
+MAP_PROVIDER=openstreetmap
+KAKAO_REST_API_KEY=
 ```
 
-- `OPENAI_API_KEY`가 없으면 AI 채팅은 화면에 `기본 분석 모드`로 표시됩니다.
-- 병원 검색은 기본적으로 키가 필요 없는 OpenStreetMap을 사용하고, 결과는 네이버 지도 검색으로 열립니다.
-- 카카오 로컬 API 승인이 끝난 뒤에만 `MAP_PROVIDER=kakao`로 변경하세요.
+`DATABASE_URL`이 없으면 AI와 병원 검색 API는 계속 실행되고, 인증 및 데이터 저장 API만
+`503 DATABASE_NOT_CONFIGURED`를 반환합니다. 배포 시 PostgreSQL 연결 문자열을 등록하면
+Prisma 마이그레이션이 자동 적용됩니다.
 
-`OPENAI_API_KEY`와 `KAKAO_REST_API_KEY`는 프런트엔드 코드에 넣지 않습니다.
+## Main API
 
-## API
+- `POST /api/auth/signup`, `POST /api/auth/login`
+- `POST /api/auth/refresh`, `POST /api/auth/logout`
+- `GET /api/users/me`
+- `GET|POST|PATCH|DELETE /api/pets`
+- `GET|POST /api/pets/:petId/records`
+- `PATCH|DELETE /api/records/:recordId`
+- `GET|POST /api/pets/:petId/events`
+- `PATCH|DELETE /api/events/:eventId`
+- `POST /api/pets/:petId/feedback`
+- `POST /api/ai/chat`
+- `POST /api/reports/health`
+- `POST /api/hospitals/nearby`
 
-- `GET /api/health`: 서버 상태
-- `POST /api/hospitals/nearby`: 사용자 좌표 기준 카카오 동물병원 검색
-- `POST /api/ai/chat`: 반려동물 프로필과 기록 기반 AI 상담
-- `POST /api/reports/health`: AI 건강 리포트 생성
+## Verification
 
-## 배포
+```powershell
+npm run check
+npm test
+```
 
-- 프런트엔드: Netlify에서 저장소 루트를 연결하면 `netlify.toml`이 `frontend/`를 배포합니다.
-- 백엔드: Render 또는 Railway에서 Root Directory를 `backend`로 지정하고 `npm run dev`를 실행합니다.
-- 운영 프런트의 API 주소는 배포된 백엔드 URL로 설정합니다.
+## Deployment
+
+- Frontend: Netlify, publish directory `frontend`
+- Backend: Render, root directory `backend`
+- Database: PostgreSQL-compatible managed database such as Neon
+- Secrets are configured only in Netlify or Render environment variables.

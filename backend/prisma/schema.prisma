@@ -1,0 +1,128 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String          @id @default(uuid())
+  name           String
+  email          String          @unique
+  passwordHash   String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  pets           Pet[]
+  refreshTokens  RefreshToken[]
+  chatSessions   ChatSession[]
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  tokenHash  String   @unique
+  userId     String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Pet {
+  id             String                   @id @default(uuid())
+  userId         String
+  name           String
+  type           String
+  breed          String
+  age            Int
+  weight         Float
+  gender         String?
+  neutered       String?
+  conditions     String[]                 @default([])
+  allergies      String[]                 @default([])
+  routines       String[]                 @default([])
+  reminders      Json?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  records        HealthRecord[]
+  events         HealthEvent[]
+  feedback       RecommendationFeedback[]
+  chatSessions   ChatSession[]
+
+  @@index([userId])
+}
+
+model HealthRecord {
+  id         String   @id @default(uuid())
+  petId      String
+  date       DateTime @db.Date
+  category   String
+  value      Float
+  detail     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@unique([petId, date, category])
+  @@index([petId, date])
+}
+
+model HealthEvent {
+  id         String   @id @default(uuid())
+  petId      String
+  type       String
+  title      String
+  date       DateTime @db.Date
+  time       String?
+  memo       String?
+  completed  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([petId, date])
+}
+
+model RecommendationFeedback {
+  id         String   @id @default(uuid())
+  petId      String
+  productId  String
+  value      String
+  createdAt  DateTime @default(now())
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([petId, productId])
+}
+
+model ChatSession {
+  id         String        @id @default(uuid())
+  userId     String
+  petId      String?
+  title      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet        Pet?          @relation(fields: [petId], references: [id], onDelete: SetNull)
+  messages   ChatMessage[]
+
+  @@index([userId, updatedAt])
+  @@index([petId])
+}
+
+model ChatMessage {
+  id         String      @id @default(uuid())
+  sessionId  String
+  role       String
+  content    String
+  source     String?
+  createdAt  DateTime    @default(now())
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
