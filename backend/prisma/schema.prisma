@@ -1,6 +1,6 @@
 generator client {
   provider     = "prisma-client"
-  output       = "../src/generated/prisma"
+  output       = "../generated-client"
   moduleFormat = "esm"
 }
 
@@ -18,6 +18,7 @@ model User {
   pets           Pet[]
   refreshTokens  RefreshToken[]
   chatSessions   ChatSession[]
+  healthReports  HealthReport[]
 }
 
 model RefreshToken {
@@ -54,6 +55,7 @@ model Pet {
   events         HealthEvent[]
   feedback       RecommendationFeedback[]
   chatSessions   ChatSession[]
+  healthReports  HealthReport[]
 
   @@index([userId])
 }
@@ -125,4 +127,18 @@ model ChatMessage {
   session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
+}
+
+model HealthReport {
+  id         String   @id @default(uuid())
+  userId     String
+  petId      String
+  report     Json
+  source     String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([petId, createdAt])
 }

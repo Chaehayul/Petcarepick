@@ -20,6 +20,11 @@
 html, body { margin: 0; min-width: 320px; min-height: 100%; background: var(--bg); color: var(--ink); }
 button, input, select, textarea { font: inherit; }
 button { border: 0; cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid rgba(91,76,224,.32);
+  outline-offset: 2px;
+}
+button:disabled { cursor: wait; opacity: .65; }
 svg { width: 22px; height: 22px; }
 h1, h2, h3, p { overflow-wrap: anywhere; }
 
@@ -348,6 +353,18 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
 .empty-state { padding: 28px 18px; border-radius: 16px; background: #fff; text-align: center; }
 .empty-state p { color: var(--muted); }
 .toast { position: fixed; left: 50%; bottom: 26px; z-index: 100; transform: translateX(-50%); max-width: calc(100% - 32px); border-radius: 999px; padding: 12px 17px; color: #fff; background: #242532; box-shadow: var(--shadow); font-size: 13px; }
+.global-loading { position: fixed; inset: 0; z-index: 1400; display: grid; place-content: center; justify-items: center; gap: 12px; background: rgba(247,248,252,.78); backdrop-filter: blur(4px); }
+.global-loading p { margin: 0; color: var(--ink); font-size: 13px; font-weight: 800; }
+.global-error { position: fixed; left: 50%; bottom: calc(106px + env(safe-area-inset-bottom)); z-index: 1300; width: min(400px,calc(100% - 28px)); display: flex; align-items: center; gap: 10px; transform: translateX(-50%); border: 1px solid #ffcaca; border-radius: 14px; padding: 12px 13px; color: #9c3232; background: #fff4f4; box-shadow: var(--shadow); font-size: 12px; font-weight: 700; }
+.global-error span { min-width: 0; flex: 1; }
+.global-error button { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 9px; color: var(--red); background: transparent; }
+.report-ai { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; padding: 16px; border: 1px solid #dcd8ff; border-radius: 16px; background: var(--brand-soft); }
+.report-ai > div { min-width: 0; flex: 1; }
+.report-ai strong { display: block; color: var(--brand-dark); }
+.report-ai p { margin: 5px 0 0; color: #5d5b77; font-size: 12px; line-height: 1.55; }
+.report-ai button { flex: 0 0 auto; border-radius: 10px; padding: 9px 11px; color: var(--brand); background: #fff; font-size: 11px; font-weight: 800; }
+.report-ai.error { border-color: #ffcaca; background: var(--red-soft); }
+.report-ai.error strong, .report-ai.error button { color: var(--red); }
 
 .platform { min-height: 100vh; background: #f7f8fc; }
 .platform header { display: flex; align-items: center; justify-content: space-between; padding: 20px clamp(22px,5vw,64px); background: #fff; border-bottom: 1px solid var(--line); }

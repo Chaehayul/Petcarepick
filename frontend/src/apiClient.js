@@ -1,153 +1,145 @@
-import { config } from "./config.js";
-import { hospitals, initialState, products, today } from "./mockData.js";
+const API_BASE_URL = location.hostname === "localhost" || location.hostname === "127.0.0.1"
+  ? "http://localhost:8787/api"
+  : "/api";
 
-const STORAGE_KEY = "petcarepick:mvp-state";
+const TOKEN_KEY = "petcarepick:tokens:v1";
+let refreshPromise = null;
 
-function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) return JSON.parse(saved);
-
-  const seeded = structuredClone(initialState);
-  seeded.users.push({ id: "demo-user", name: "보호자", email: "demo@petcarepick.kr" });
-  seeded.session = { userId: "demo-user", name: "보호자", email: "demo@petcarepick.kr" };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-  return seeded;
+export class ApiError extends Error {
+  constructor(message, status, code, details) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
 }
 
-function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function readTokens() {
+  try {
+    return JSON.parse(localStorage.getItem(TOKEN_KEY)) || null;
+  } catch {
+    return null;
+  }
 }
 
-function uid(prefix) {
-  return `${prefix}-${crypto.randomUUID()}`;
+function writeTokens(tokens) {
+  if (tokens) localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens));
+  else localStorage.removeItem(TOKEN_KEY);
 }
 
-class MockApiClient {
-  constructor() {
-    this.state = loadState();
-  }
-
-  getSession() {
-    return this.state.session;
-  }
-
-  signUp({ name, email, password }) {
-    if (!name || name.length > 20) throw new Error("이름은 20자 이하로 입력해주세요.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("이메일 형식을 확인해주세요.");
-    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password)) throw new Error("비밀번호는 8자 이상 영문+숫자로 입력해주세요.");
-    if (this.state.users.some((user) => user.email === email)) throw new Error("이미 가입된 이메일입니다.");
-
-    const user = { id: uid("user"), name, email };
-    this.state.users.push(user);
-    this.state.session = { userId: user.id, name: user.name, email: user.email };
-    saveState(this.state);
-    return this.state.session;
-  }
-
-  signIn({ email }) {
-    const user = this.state.users.find((item) => item.email === email) ?? this.state.users[0];
-    this.state.session = { userId: user.id, name: user.name, email: user.email };
-    saveState(this.state);
-    return this.state.session;
-  }
-
-  signOut() {
-    this.state.session = null;
-    saveState(this.state);
-  }
-
-  deleteAccount() {
-    const userId = this.state.session?.userId;
-    if (!userId) return;
-    const petIds = this.state.pets.filter((pet) => pet.ownerId === userId).map((pet) => pet.id);
-    this.state.users = this.state.users.filter((user) => user.id !== userId);
-    this.state.pets = this.state.pets.filter((pet) => pet.ownerId !== userId);
-    this.state.records = this.state.records.filter((record) => !petIds.includes(record.petId));
-    this.state.events = this.state.events.filter((event) => !petIds.includes(event.petId));
-    this.state.session = null;
-    saveState(this.state);
-  }
-
-  listPets() {
-    const userId = this.state.session?.userId;
-    return this.state.pets.filter((pet) => pet.ownerId === userId);
-  }
-
-  createPet(input) {
-    const userId = this.state.session?.userId;
-    if (!userId) throw new Error("다시 로그인해주세요.");
-    if (this.listPets().length >= 10) throw new Error("반려동물은 최대 10마리까지 등록할 수 있어요.");
-    const pet = { ...input, id: uid("pet"), ownerId: userId };
-    this.state.pets.push(pet);
-    saveState(this.state);
-    return pet;
-  }
-
-  updatePet(petId, patch) {
-    this.state.pets = this.state.pets.map((pet) => (pet.id === petId ? { ...pet, ...patch } : pet));
-    saveState(this.state);
-    return this.state.pets.find((pet) => pet.id === petId);
-  }
-
-  deletePet(petId) {
-    this.state.pets = this.state.pets.filter((pet) => pet.id !== petId);
-    this.state.records = this.state.records.filter((record) => record.petId !== petId);
-    this.state.events = this.state.events.filter((event) => event.petId !== petId);
-    saveState(this.state);
-  }
-
-  listRecords(petId) {
-    return this.state.records.filter((record) => record.petId === petId);
-  }
-
-  createRecord(record) {
-    const next = { ...record, id: uid("rec"), date: record.date || today() };
-    this.state.records.push(next);
-    saveState(this.state);
-    return next;
-  }
-
-  completionForToday(petId) {
-    const categories = new Set(
-      this.state.records
-        .filter((record) => record.petId === petId && record.date === today())
-        .map((record) => record.category),
+async function parseResponse(response) {
+  if (response.status === 204) return null;
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new ApiError(
+      payload.error?.message || "요청을 처리하지 못했어요.",
+      response.status,
+      payload.error?.code || "API_ERROR",
+      payload.error?.details,
     );
-    return categories.size;
   }
-
-  listEvents(petId) {
-    return this.state.events.filter((event) => event.petId === petId);
-  }
-
-  createEvent(event) {
-    const next = { ...event, id: uid("evt"), done: false };
-    this.state.events.push(next);
-    saveState(this.state);
-    return next;
-  }
-
-  listRecommendations(pet) {
-    const allergies = new Set(pet?.allergies ?? []);
-    const conditions = new Set(pet?.conditions ?? []);
-    const filtered = products.filter((product) => !product.avoidAllergies.some((item) => allergies.has(item)));
-    return filtered
-      .map((product) => ({
-        ...product,
-        score: product.conditionFit.some((item) => conditions.has(item)) ? 2 : 1,
-      }))
-      .sort((a, b) => b.score - a.score);
-  }
-
-  findHospitals({ night = false, emergency = false, radiusKm = 2 } = {}) {
-    return hospitals.filter((hospital) => {
-      if (hospital.distanceKm > radiusKm) return false;
-      if (night && !hospital.night) return false;
-      if (emergency && !hospital.emergency) return false;
-      return true;
-    });
-  }
+  return payload;
 }
 
-export const api = new MockApiClient();
-export const apiMode = config.apiMode;
+async function refreshAccessToken() {
+  if (refreshPromise) return refreshPromise;
+  const refreshToken = readTokens()?.refreshToken;
+  if (!refreshToken) throw new ApiError("로그인이 필요해요.", 401, "UNAUTHORIZED");
+
+  refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  })
+    .then(parseResponse)
+    .then((tokens) => {
+      writeTokens(tokens);
+      return tokens.accessToken;
+    })
+    .catch((error) => {
+      writeTokens(null);
+      throw error;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+  return refreshPromise;
+}
+
+async function request(path, options = {}, retry = true) {
+  const tokens = readTokens();
+  const headers = new Headers(options.headers || {});
+  if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (tokens?.accessToken) headers.set("Authorization", `Bearer ${tokens.accessToken}`);
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  if (response.status === 401 && retry && tokens?.refreshToken) {
+    const accessToken = await refreshAccessToken();
+    headers.set("Authorization", `Bearer ${accessToken}`);
+    return parseResponse(await fetch(`${API_BASE_URL}${path}`, { ...options, headers }));
+  }
+  return parseResponse(response);
+}
+
+function json(method, body) {
+  return { method, body: JSON.stringify(body) };
+}
+
+export const api = {
+  hasSession: () => Boolean(readTokens()?.refreshToken),
+  clearSession: () => writeTokens(null),
+
+  async signup(input) {
+    const result = await request("/auth/signup", json("POST", input), false);
+    writeTokens(result.tokens);
+    return result.user;
+  },
+
+  async login(input) {
+    const result = await request("/auth/login", json("POST", input), false);
+    writeTokens(result.tokens);
+    return result.user;
+  },
+
+  async logout() {
+    const refreshToken = readTokens()?.refreshToken;
+    try {
+      if (refreshToken) await request("/auth/logout", json("POST", { refreshToken }), false);
+    } finally {
+      writeTokens(null);
+    }
+  },
+
+  me: () => request("/users/me"),
+  updateMe: (input) => request("/users/me", json("PATCH", input)),
+  deleteMe: () => request("/users/me", { method: "DELETE" }),
+
+  listPets: () => request("/pets"),
+  createPet: (input) => request("/pets", json("POST", input)),
+  updatePet: (petId, input) => request(`/pets/${petId}`, json("PATCH", input)),
+  deletePet: (petId) => request(`/pets/${petId}`, { method: "DELETE" }),
+
+  listRecords: (petId, from, to) => {
+    const query = new URLSearchParams();
+    if (from) query.set("from", from);
+    if (to) query.set("to", to);
+    return request(`/pets/${petId}/records${query.size ? `?${query}` : ""}`);
+  },
+  saveRecord: (petId, input) => request(`/pets/${petId}/records`, json("POST", input)),
+  deleteRecord: (recordId) => request(`/records/${recordId}`, { method: "DELETE" }),
+
+  listEvents: (petId) => request(`/pets/${petId}/events`),
+  createEvent: (petId, input) => request(`/pets/${petId}/events`, json("POST", input)),
+  updateEvent: (eventId, input) => request(`/events/${eventId}`, json("PATCH", input)),
+  deleteEvent: (eventId) => request(`/events/${eventId}`, { method: "DELETE" }),
+
+  listFeedback: (petId) => request(`/pets/${petId}/feedback`),
+  saveFeedback: (petId, input) => request(`/pets/${petId}/feedback`, json("POST", input)),
+  listChatSessions: () => request("/chat/sessions"),
+  chat: (input) => request("/ai/chat", json("POST", input)),
+  createHealthReport: (input) => request("/reports/health", json("POST", input)),
+  listHealthReports: (petId) => request(`/pets/${petId}/reports`),
+  health: () => request("/health"),
+  hospitals: (input) => request("/hospitals/nearby", json("POST", input)),
+};

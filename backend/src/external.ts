@@ -138,8 +138,19 @@ export async function createHealthChat({
     `Conversation: ${JSON.stringify(conversation.slice(-8))}`,
     `User question: ${message}`,
   ].join("\n");
-  const output = await openAIResponse(config.openAiChatModel, prompt);
-  return { message: output, emergency: false, source: "openai" };
+  try {
+    const output = await openAIResponse(config.openAiChatModel, prompt);
+    return { message: output, emergency: false, source: "openai" };
+  } catch (error) {
+    if (!(error instanceof AppError)) throw error;
+    return {
+      message: fallbackHealthChat(message, pet, recentRecords),
+      emergency: false,
+      source: "fallback",
+      warning: error.message,
+      errorCode: error.code,
+    };
+  }
 }
 
 export async function createHealthReport({ pet, records = [] }: { pet: PetProfile; records?: unknown[] }) {
@@ -151,12 +162,71 @@ export async function createHealthReport({ pet, records = [] }: { pet: PetProfil
     `Pet profile: ${JSON.stringify(pet)}`,
     `Records: ${JSON.stringify(records.slice(-450))}`,
   ].join("\n");
-  const output = await openAIResponse(config.openAiReportModel, prompt);
   try {
-    return { report: JSON.parse(output), source: "openai" };
-  } catch {
-    return { report: { summary: output, confidence: "low" }, source: "openai" };
+    const output = await openAIResponse(config.openAiReportModel, prompt);
+    try {
+      return { report: JSON.parse(output), source: "openai" };
+    } catch {
+      return { report: { summary: output, confidence: "low" }, source: "openai" };
+    }
+  } catch (error) {
+    if (!(error instanceof AppError)) throw error;
+    return {
+      report: fallbackHealthReport(pet, records),
+      source: "fallback",
+      warning: error.message,
+      errorCode: error.code,
+    };
   }
+}
+
+function fallbackHealthChat(message: string, pet: PetProfile, recentRecords: unknown[]) {
+  const name = String(pet.name || "반려동물");
+  const normalized = recentRecords
+    .filter((record): record is Record<string, unknown> => Boolean(record && typeof record === "object"))
+    .slice(-50);
+  const meal = [...normalized].reverse().find((record) => record.category === "meal");
+  const activity = [...normalized].reverse().find((record) => record.category === "activity");
+  const weight = [...normalized].reverse().find((record) => record.category === "weight");
+  const observations = [
+    meal ? `최근 식사량은 ${meal.value}%로 기록되어 있어요.` : "최근 식사량 기록은 아직 충분하지 않아요.",
+    activity ? `최근 활동 시간은 ${activity.value}분이에요.` : "최근 활동량 기록은 아직 없어요.",
+    weight ? `최근 체중은 ${weight.value}kg이에요.` : pet.weight ? `프로필 체중은 ${pet.weight}kg이에요.` : "",
+  ].filter(Boolean);
+
+  return [
+    `${name}의 프로필과 최근 기록을 기준으로 살펴봤어요.`,
+    ...observations,
+    `질문: ${message}`,
+    "한 번의 수치보다 3~7일 추세를 함께 확인하고, 식욕 저하·무기력·구토·호흡 이상이 동반되면 수의사와 상담해주세요.",
+  ].join("\n");
+}
+
+function fallbackHealthReport(pet: PetProfile, records: unknown[]) {
+  const normalized = records.filter(
+    (record): record is Record<string, unknown> => Boolean(record && typeof record === "object"),
+  );
+  const recent = normalized.slice(-35);
+  const categories = new Set(recent.map((record) => String(record.category || ""))).size;
+  const completeness = Math.min(100, Math.round(recent.length / 35 * 100));
+  const score = Math.max(45, Math.min(90, 55 + categories * 5 + Math.round(completeness * 0.15)));
+
+  return {
+    summary: `${pet.name}의 최근 건강 기록 ${recent.length}건을 분석했어요. 현재는 기록 추세를 꾸준히 쌓는 것이 가장 중요합니다.`,
+    score,
+    confidence: recent.length >= 15 ? "medium" : "low",
+    metrics: {
+      recordCount: recent.length,
+      categoryCount: categories,
+      completeness,
+    },
+    alerts: recent.length < 5 ? ["판단에 필요한 최근 기록이 아직 부족해요."] : [],
+    actions: [
+      "식사량, 활동량, 체중을 같은 시간대에 꾸준히 기록해주세요.",
+      "평소와 다른 증상이 함께 나타나면 기록을 가지고 동물병원에 상담해주세요.",
+    ],
+    vetQuestions: ["최근 식욕·활동량 변화가 건강 문제와 관련이 있을까요?"],
+  };
 }
 
 async function openAIResponse(model: string, input: string) {

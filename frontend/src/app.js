@@ -1,3 +1,5 @@
+import { api, ApiError } from "./apiClient.js";
+
 const STORE_KEY = "petcarepick:app:v2";
 const SESSION_KEY = "petcarepick:session:v1";
 const app = document.querySelector("#app");
@@ -7,9 +9,6 @@ const isInstalledApp = window.matchMedia("(display-mode: standalone)").matches |
 const surface = requestedSurface === "app" || requestedSurface === "web"
   ? requestedSurface
   : isInstalledApp ? "app" : "web";
-const API_BASE_URL = location.hostname === "localhost" || location.hostname === "127.0.0.1"
-  ? "http://localhost:8787/api"
-  : "/api";
 let onboardingTimer = 0;
 
 const tabs = [
@@ -57,6 +56,13 @@ const state = {
   aiStatus: "unknown",
   aiError: "",
   chatSending: false,
+  chatSessionId: "",
+  bootstrapping: true,
+  busy: false,
+  globalError: "",
+  reportStatus: "idle",
+  reportData: null,
+  reportError: "",
   onboardingStep: 0,
   authMode: "login",
   pendingUser: null,
@@ -83,6 +89,7 @@ document.body.classList.add(`surface-${surface}`);
 clearOldCaches();
 initializeRoute();
 render();
+bootstrapApp();
 
 window.addEventListener("popstate", (event) => {
   const next = event.state;
@@ -105,6 +112,7 @@ function emptyData() {
 }
 
 function loadData() {
+  if (localStorage.getItem(SESSION_KEY) !== "demo") return emptyData();
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
     return saved && typeof saved === "object" ? { ...emptyData(), ...saved } : emptyData();
@@ -114,7 +122,7 @@ function loadData() {
 }
 
 function saveData() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+  if (state.data.user?.demo) localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
 }
 
 function setSession(value) {
@@ -122,7 +130,7 @@ function setSession(value) {
 }
 
 function isLoggedOut() {
-  return localStorage.getItem(SESSION_KEY) === "logged-out";
+  return !api.hasSession() && localStorage.getItem(SESSION_KEY) !== "demo";
 }
 
 function entryRoute() {
@@ -137,6 +145,7 @@ function clearOldCaches() {
 
 function initializeRoute() {
   if (urlParams.get("onboarding") === "1") state.route = "intro";
+  else if (api.hasSession()) state.route = "splash";
   else if (!state.data.user) state.route = "splash";
   else if (isLoggedOut()) state.route = "signup";
   else if (!state.data.pets.length) state.route = "pet-form";
@@ -144,11 +153,96 @@ function initializeRoute() {
   history.replaceState({ route: state.route, tab: state.tab }, "", location.href);
 }
 
+async function bootstrapApp() {
+  if (state.data.user?.demo) {
+    state.bootstrapping = false;
+    state.route = "app";
+    render();
+    return;
+  }
+  if (!api.hasSession()) {
+    state.bootstrapping = false;
+    state.route = "intro";
+    render();
+    return;
+  }
+
+  try {
+    await hydrateServerData();
+    state.route = state.data.pets.length ? "app" : "pet-intro";
+  } catch (error) {
+    api.clearSession();
+    state.data = emptyData();
+    state.globalError = friendlyError(error, "로그인 정보를 다시 확인해주세요.");
+    state.route = "signup";
+  } finally {
+    state.bootstrapping = false;
+    history.replaceState({ route: state.route, tab: state.tab }, "", location.href);
+    render();
+  }
+}
+
+async function hydrateServerData() {
+  const [{ user }, { pets }] = await Promise.all([api.me(), api.listPets()]);
+  const petData = await Promise.all(pets.map(async (pet) => {
+    const [{ records }, { events }, { feedback }] = await Promise.all([
+      api.listRecords(pet.id),
+      api.listEvents(pet.id),
+      api.listFeedback(pet.id),
+    ]);
+    return { pet, records, events, feedback };
+  }));
+  const sessions = await api.listChatSessions().catch(() => ({ sessions: [] }));
+  const messages = sessions.sessions?.[0]?.messages || [];
+  state.data = {
+    ...emptyData(),
+    user,
+    pets,
+    records: petData.flatMap((item) => item.records),
+    events: petData.flatMap((item) => item.events),
+    feedback: petData.flatMap((item) => item.feedback),
+    chats: messages.length
+      ? messages.map((message) => ({ from: message.role === "assistant" ? "ai" : "user", text: message.content }))
+      : emptyData().chats,
+  };
+  state.chatSessionId = sessions.sessions?.[0]?.id || "";
+  state.selectedPetId = pets.some((pet) => pet.id === state.selectedPetId) ? state.selectedPetId : pets[0]?.id || "";
+}
+
+function isDemoMode() {
+  return state.data.user?.demo === true;
+}
+
+function friendlyError(error, fallback = "요청을 처리하지 못했어요.") {
+  if (error instanceof ApiError) return error.message;
+  return error?.message || fallback;
+}
+
+async function runBusy(task, successMessage = "") {
+  if (state.busy) return null;
+  state.busy = true;
+  state.globalError = "";
+  render();
+  try {
+    const result = await task();
+    if (successMessage) showToast(successMessage);
+    return result;
+  } catch (error) {
+    state.globalError = friendlyError(error);
+    render();
+    return null;
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
 function navigate(route, options = {}) {
   state.route = route;
   const method = options.replace ? "replaceState" : "pushState";
   history[method]({ route, tab: state.tab }, "", location.href);
   render();
+  if (route === "report") loadHealthReport();
 }
 
 function goBack(fallback = "app") {
@@ -245,7 +339,7 @@ function render() {
     }, 4000);
   }
   if (state.route === "splash") window.setTimeout(() => {
-    if (state.route === "splash") navigate("intro", { replace: true });
+    if (state.route === "splash" && !state.bootstrapping) navigate(entryRoute(), { replace: true });
   }, 1200);
 }
 
@@ -257,6 +351,8 @@ function appShell(content, { nav = true, compact = false } = {}) {
       </section>
       ${nav ? renderNav() : ""}
       ${nav ? `<button class="ai-fab" data-route="chat" aria-label="AI 헬스 매니저">${icon("message")}<span>AI</span></button>` : ""}
+      ${state.busy ? '<div class="global-loading" role="status"><span class="loader"></span><p>데이터를 저장하고 있어요</p></div>' : ""}
+      ${state.globalError ? `<div class="global-error" role="alert"><span>${escapeHtml(state.globalError)}</span><button data-dismiss-error aria-label="오류 닫기">${icon("close")}</button></div>` : ""}
       ${state.toast ? `<div class="toast">${escapeHtml(state.toast)}</div>` : ""}
     </main>
   `;
@@ -426,7 +522,7 @@ function renderMy(pet) {
       <button class="settings-row" data-export-data><span>${icon("download")}</span><div><strong>내 데이터 내려받기</strong><p>프로필, 기록과 일정을 JSON 파일로 저장해요.</p></div>${icon("chevron")}</button>
       <button class="settings-row" data-logout><span>${icon("logout")}</span><div><strong>${demo ? "데모 종료" : "로그아웃"}</strong><p>${demo ? "샘플 데이터를 지우고 처음 화면으로 돌아가요." : "내 데이터는 보관하고 로그인 화면으로 돌아가요."}</p></div>${icon("chevron")}</button>
     </div>
-    ${demo ? "" : '<section class="danger-zone"><strong>데이터 삭제</strong><p>이 브라우저에 저장된 계정, 반려동물, 건강 기록과 일정을 모두 삭제합니다.</p><button data-delete-account>모든 데이터 삭제</button></section>'}
+    ${demo ? "" : '<section class="danger-zone"><strong>계정 및 데이터 삭제</strong><p>서버에 저장된 계정, 반려동물, 건강 기록과 일정을 영구적으로 삭제합니다.</p><button data-delete-account>계정과 데이터 삭제</button></section>'}
   </section>`);
 }
 
@@ -457,7 +553,44 @@ function renderReport() {
   const score = healthScore(pet);
   const analysis = healthAnalysis(pet);
   const rate = Math.min(100, Math.round(lastSeven.length / 35 * 100));
-  return appShell(`<section class="page report-page"><header class="page-header row"><button class="icon-button plain" data-back aria-label="홈으로">${icon("back")}</button><div><h1>건강 리포트</h1><p>최근 7일 · ${escapeHtml(pet.name)}</p></div></header><section class="score-card"><span>이번 주 건강 점수</span><strong>${score}</strong><small>/ 100점</small><p>${analysis.scoreMessage}</p></section><h2 class="list-heading">항목별 분석</h2><section class="report-grid"><article><span>식사량</span><strong>${metrics.appetite ?? "-"}${metrics.appetite === null ? "" : "%"}</strong><small>${analysis.appetiteLabel}</small></article><article><span>활동량</span><strong>${metrics.activity ?? "-"}${metrics.activity === null ? "" : "분"}</strong><small>${analysis.activityLabel}</small></article><article><span>현재 체중</span><strong>${metrics.weight ?? pet.weight}kg</strong><small>${analysis.weightLabel}</small></article><article><span>기록률</span><strong>${rate}%</strong><small>${lastSeven.length}/35개</small></article></section><h2 class="list-heading">이번 주 주의사항</h2><section class="report-notice ${analysis.alert ? "warning" : ""}"><strong>${analysis.alert?.title || `${pet.name}의 기록이 안정적이에요`}</strong><p>${analysis.alert?.detail || `${ageStage(pet.age)}와 현재 체중을 기준으로 식사·활동 기록을 꾸준히 유지해주세요.`}</p></section><section class="section-title"><div><h2>체중 추이</h2><p>최근 측정 기록</p></div></section><div class="weight-chart">${weightSeries(pet).map((item) => `<div><span style="height:${item.height}%"></span><small>${item.label}</small><em>${item.value}</em></div>`).join("") || '<div class="empty-state"><p>체중 기록을 남기면 개인별 추이를 볼 수 있어요.</p></div>'}</div></section>`, { nav: false });
+  const aiSummary = state.reportData?.summary || state.reportData?.report?.summary;
+  const aiPanel = state.reportStatus === "loading"
+    ? '<section class="report-ai loading"><span class="loader"></span><div><strong>AI가 최근 기록을 분석하고 있어요</strong><p>프로필과 건강 기록을 함께 확인하는 중입니다.</p></div></section>'
+    : state.reportError
+      ? `<section class="report-ai error"><div><strong>AI 리포트를 불러오지 못했어요</strong><p>${escapeHtml(state.reportError)}</p></div><button data-refresh-report>다시 시도</button></section>`
+      : aiSummary
+        ? `<section class="report-ai"><div><strong>AI 종합 분석</strong><p>${escapeHtml(aiSummary)}</p></div><button data-refresh-report>새로 분석</button></section>`
+        : "";
+  return appShell(`<section class="page report-page"><header class="page-header row"><button class="icon-button plain" data-back aria-label="홈으로">${icon("back")}</button><div><h1>건강 리포트</h1><p>최근 7일 · ${escapeHtml(pet.name)}</p></div></header>${aiPanel}<section class="score-card"><span>이번 주 건강 점수</span><strong>${score}</strong><small>/ 100점</small><p>${analysis.scoreMessage}</p></section><h2 class="list-heading">항목별 분석</h2><section class="report-grid"><article><span>식사량</span><strong>${metrics.appetite ?? "-"}${metrics.appetite === null ? "" : "%"}</strong><small>${analysis.appetiteLabel}</small></article><article><span>활동량</span><strong>${metrics.activity ?? "-"}${metrics.activity === null ? "" : "분"}</strong><small>${analysis.activityLabel}</small></article><article><span>현재 체중</span><strong>${metrics.weight ?? pet.weight}kg</strong><small>${analysis.weightLabel}</small></article><article><span>기록률</span><strong>${rate}%</strong><small>${lastSeven.length}/35개</small></article></section><h2 class="list-heading">이번 주 주의사항</h2><section class="report-notice ${analysis.alert ? "warning" : ""}"><strong>${analysis.alert?.title || `${pet.name}의 기록이 안정적이에요`}</strong><p>${analysis.alert?.detail || `${ageStage(pet.age)}와 현재 체중을 기준으로 식사·활동 기록을 꾸준히 유지해주세요.`}</p></section><section class="section-title"><div><h2>체중 추이</h2><p>최근 측정 기록</p></div></section><div class="weight-chart">${weightSeries(pet).map((item) => `<div><span style="height:${item.height}%"></span><small>${item.label}</small><em>${item.value}</em></div>`).join("") || '<div class="empty-state"><p>체중 기록을 남기면 개인별 추이를 볼 수 있어요.</p></div>'}</div></section>`, { nav: false });
+}
+
+async function loadHealthReport(force = false) {
+  const pet = currentPet();
+  if (!pet || state.reportStatus === "loading") return;
+  state.reportStatus = "loading";
+  state.reportError = "";
+  render();
+  try {
+    if (!force && !isDemoMode()) {
+      const saved = await api.listHealthReports(pet.id);
+      if (saved.reports?.[0]) {
+        state.reportData = saved.reports[0].report;
+        state.reportStatus = "ready";
+        render();
+        return;
+      }
+    }
+    const result = await api.createHealthReport({
+      pet,
+      records: state.data.records.filter((record) => record.petId === pet.id),
+    });
+    state.reportData = result.report;
+    state.reportStatus = "ready";
+  } catch (error) {
+    state.reportStatus = "error";
+    state.reportError = `${friendlyError(error)} 기본 지표 분석은 계속 확인할 수 있어요.`;
+  }
+  render();
 }
 
 function renderAnomaly() {
@@ -535,6 +668,7 @@ function bindEvents() {
   app.querySelector("[data-chat-form]")?.addEventListener("submit", submitChat);
   app.querySelectorAll("[data-chat-prompt]").forEach((element) => element.addEventListener("click", () => sendChatText(element.dataset.chatPrompt)));
   app.querySelector("[data-check-ai]")?.addEventListener("click", checkAiConnection);
+  app.querySelector("[data-refresh-report]")?.addEventListener("click", () => loadHealthReport(true));
 
   app.querySelector("[data-record-date]")?.addEventListener("change", (event) => {
     state.recordDate = event.target.value;
@@ -570,6 +704,9 @@ function bindEvents() {
   app.querySelectorAll("[data-find-hospitals]").forEach((element) => element.addEventListener("click", loadNearbyHospitals));
   app.querySelectorAll("[data-select-pet]").forEach((element) => element.addEventListener("click", () => {
     state.selectedPetId = element.dataset.selectPet;
+    state.reportStatus = "idle";
+    state.reportData = null;
+    state.reportError = "";
     state.tab = "home";
     navigate("app");
   }));
@@ -588,6 +725,10 @@ function bindEvents() {
   app.querySelector("[data-replay-onboarding]")?.addEventListener("click", replayOnboarding);
   app.querySelector("[data-export-data]")?.addEventListener("click", exportUserData);
   app.querySelector("[data-delete-account]")?.addEventListener("click", deleteAllData);
+  app.querySelector("[data-dismiss-error]")?.addEventListener("click", () => {
+    state.globalError = "";
+    render();
+  });
 }
 
 function addPortfolioDemoEntry() {
@@ -706,7 +847,7 @@ async function loadNearbyHospitals() {
     const { latitude, longitude } = position.coords;
     state.userLocation = { latitude, longitude };
     try {
-      const backendResult = await apiPost("/hospitals/nearby", { latitude, longitude, radius: 5000 });
+      const backendResult = await api.hospitals({ latitude, longitude, radius: 5000 });
       state.nearbyHospitals = backendResult.hospitals || [];
       state.hospitalProvider = backendResult.provider || "kakao";
       state.hospitalStatus = "success";
@@ -786,22 +927,36 @@ function locationErrorMessage(error) {
   return error?.message || "위치 기반 병원 검색 중 오류가 발생했어요.";
 }
 
-function submitSignup(event) {
+async function submitSignup(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   if (form.get("password") !== form.get("passwordConfirm")) return showToast("비밀번호가 일치하지 않아요.");
-  state.pendingUser = { name: String(form.get("name")).trim(), email: String(form.get("email")).trim() };
-  state.verificationCode = String(Math.floor(1000 + Math.random() * 9000));
-  navigate("verify");
+  const input = {
+    name: String(form.get("name")).trim(),
+    email: String(form.get("email")).trim(),
+    password: String(form.get("password")),
+  };
+  const user = await runBusy(() => api.signup(input));
+  if (!user) return;
+  localStorage.removeItem(STORE_KEY);
+  setSession("active");
+  state.data = { ...emptyData(), user };
+  navigate("pet-intro", { replace: true });
 }
 
-function submitLogin(event) {
+async function submitLogin(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
-  const email = String(form.get("email")).trim();
-  if (!state.data.user || state.data.user.email !== email) return showToast("가입된 계정을 찾을 수 없어요.");
+  const user = await runBusy(() => api.login({
+    email: String(form.get("email")).trim(),
+    password: String(form.get("password")),
+  }));
+  if (!user) return;
+  localStorage.removeItem(STORE_KEY);
   setSession("active");
-  navigate(state.data.pets.length ? "app" : "pet-intro");
+  state.data = { ...emptyData(), user };
+  await runBusy(hydrateServerData);
+  navigate(state.data.pets.length ? "app" : "pet-intro", { replace: true });
 }
 
 function submitVerification(event) {
@@ -821,11 +976,12 @@ function resendVerification() {
   showToast("새 인증번호를 만들었어요.");
 }
 
-function submitPet(event) {
+async function submitPet(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
-  const pet = {
-    id: state.editingPetId || uid("pet"),
+  const existing = state.data.pets.find((item) => item.id === state.editingPetId) || {};
+  const input = {
+    ...existing,
     name: String(form.get("name")).trim(),
     type: form.get("type"),
     breed: String(form.get("breed")).trim(),
@@ -834,7 +990,19 @@ function submitPet(event) {
     conditions: splitList(form.get("conditions")),
     allergies: splitList(form.get("allergies")),
   };
-  state.data.pets = state.editingPetId ? state.data.pets.map((item) => item.id === pet.id ? pet : item) : [...state.data.pets, pet];
+  let pet;
+  if (isDemoMode()) {
+    pet = { ...input, id: state.editingPetId || uid("pet") };
+  } else {
+    const result = await runBusy(() => state.editingPetId
+      ? api.updatePet(state.editingPetId, input)
+      : api.createPet(input));
+    pet = result?.pet;
+    if (!pet) return;
+  }
+  state.data.pets = state.editingPetId
+    ? state.data.pets.map((item) => item.id === pet.id ? pet : item)
+    : [...state.data.pets, pet];
   state.selectedPetId = pet.id;
   state.editingPetId = "";
   saveData();
@@ -867,7 +1035,7 @@ function submitPetHealth(event) {
   render();
 }
 
-function submitPetRoutine(event) {
+async function submitPetRoutine(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   state.petDraft.reminders = {
@@ -875,13 +1043,12 @@ function submitPetRoutine(event) {
     evening: form.get("evening") === "on",
     anomaly: form.get("anomaly") === "on",
   };
-  saveNewPet();
+  await saveNewPet();
 }
 
-function saveNewPet() {
+async function saveNewPet() {
   const draft = state.petDraft;
-  const pet = {
-    id: uid("pet"),
+  const input = {
     name: draft.name,
     type: draft.type,
     breed: draft.breed,
@@ -894,6 +1061,14 @@ function saveNewPet() {
     routines: draft.routines,
     reminders: draft.reminders,
   };
+  let pet;
+  if (isDemoMode()) {
+    pet = { ...input, id: uid("pet") };
+  } else {
+    const result = await runBusy(() => api.createPet(input));
+    pet = result?.pet;
+    if (!pet) return;
+  }
   state.data.pets.push(pet);
   state.selectedPetId = pet.id;
   state.petFormStep = 0;
@@ -901,20 +1076,25 @@ function saveNewPet() {
   navigate("pet-complete");
 }
 
-function submitRecord(event) {
+async function submitRecord(event) {
   event.preventDefault();
   const pet = currentPet();
   const form = new FormData(event.currentTarget);
   const category = event.currentTarget.dataset.category;
-  const record = {
-    id: uid("record"),
-    petId: pet.id,
+  const input = {
     date: state.recordDate,
     category,
     value: Number(form.get("value")),
     detail: String(form.get("detail") || "").trim(),
-    updatedAt: new Date().toISOString(),
   };
+  let record;
+  if (isDemoMode()) {
+    record = { ...input, id: uid("record"), petId: pet.id, updatedAt: new Date().toISOString() };
+  } else {
+    const result = await runBusy(() => api.saveRecord(pet.id, input));
+    record = result?.record;
+    if (!record) return;
+  }
   state.data.records = state.data.records.filter((item) => !(item.petId === pet.id && item.date === state.recordDate && item.category === category));
   state.data.records.push(record);
   if (category === "weight") pet.weight = record.value;
@@ -922,19 +1102,32 @@ function submitRecord(event) {
   showToast(`${recordCategories.find(([id]) => id === category)[1]} 기록이 저장됐어요.`);
 }
 
-function submitEvent(event) {
+async function submitEvent(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const wasEditing = Boolean(state.editingEventId);
-  const nextEvent = {
-    id: state.editingEventId || uid("event"),
-    petId: currentPet().id,
+  const input = {
     type: String(form.get("type")),
     title: String(form.get("title")).trim(),
     date: String(form.get("date")),
     time: String(form.get("time") || ""),
     memo: String(form.get("memo") || "").trim(),
   };
+  let nextEvent;
+  if (isDemoMode()) {
+    nextEvent = {
+      ...input,
+      id: state.editingEventId || uid("event"),
+      petId: currentPet().id,
+      completed: false,
+    };
+  } else {
+    const result = await runBusy(() => state.editingEventId
+      ? api.updateEvent(state.editingEventId, input)
+      : api.createEvent(currentPet().id, input));
+    nextEvent = result?.event;
+    if (!nextEvent) return;
+  }
   state.data.events = state.editingEventId
     ? state.data.events.map((item) => item.id === state.editingEventId ? nextEvent : item)
     : [...state.data.events, nextEvent];
@@ -968,14 +1161,19 @@ async function sendChatText(text) {
   scrollChatToBottom();
   try {
     const pet = currentPet();
-    const result = await apiPost("/ai/chat", {
+    const result = await api.chat({
       message: text,
       pet,
       recentRecords: state.data.records.filter((record) => record.petId === pet?.id).slice(-50),
       conversation: state.data.chats.slice(-8),
+      ...(state.chatSessionId ? { sessionId: state.chatSessionId } : {}),
     });
     state.data.chats.push({ from: "ai", text: result.message });
-    state.aiStatus = "connected";
+    state.chatSessionId = result.sessionId || state.chatSessionId;
+    state.aiStatus = result.source === "openai" ? "connected" : "unavailable";
+    state.aiError = result.warning
+      ? `${result.warning} 기본 건강 분석으로 답변했고 대화 내역은 안전하게 저장했어요.`
+      : "";
   } catch (error) {
     state.aiStatus = "unavailable";
     state.aiError = `${error.message} 기본 건강 분석으로 답변했어요.`;
@@ -995,30 +1193,12 @@ function scrollChatToBottom() {
   });
 }
 
-async function apiPost(path, body) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "API request failed");
-  return payload;
-}
-
-async function apiGet(path) {
-  const response = await fetch(`${API_BASE_URL}${path}`);
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "API request failed");
-  return payload;
-}
-
 async function checkAiConnection() {
   state.aiStatus = "checking";
   state.aiError = "";
   render();
   try {
-    const result = await apiGet("/health");
+    const result = await api.health();
     state.aiStatus = result.capabilities?.ai ? "connected" : "unavailable";
     if (!result.capabilities?.ai) state.aiError = "OpenAI API 키가 서버에 설정되지 않아 기본 분석 모드로 동작해요.";
   } catch {
@@ -1028,17 +1208,29 @@ async function checkAiConnection() {
   render();
 }
 
-function saveFeedback(element) {
+async function saveFeedback(element) {
   const productId = element.dataset.feedback;
   const value = element.dataset.value;
-  state.data.feedback.push({ id: uid("feedback"), petId: currentPet().id, productId, value, date: new Date().toISOString() });
+  let feedback;
+  if (isDemoMode()) {
+    feedback = { id: uid("feedback"), petId: currentPet().id, productId, value, date: new Date().toISOString() };
+  } else {
+    const result = await runBusy(() => api.saveFeedback(currentPet().id, { productId, value }));
+    feedback = result?.feedback;
+    if (!feedback) return;
+  }
+  state.data.feedback.push(feedback);
   saveData();
   showToast(value === "잘 안 먹어요" ? "다음 추천에서 우선순위를 낮출게요." : "선호 제품으로 학습했어요.");
 }
 
-function deletePet() {
+async function deletePet() {
   const pet = currentPet();
   if (!pet || !confirm(`${pet.name}의 프로필과 기록을 모두 삭제할까요?`)) return;
+  if (!isDemoMode()) {
+    const deleted = await runBusy(() => api.deletePet(pet.id));
+    if (deleted === null && state.globalError) return;
+  }
   state.data.pets = state.data.pets.filter((item) => item.id !== pet.id);
   state.data.records = state.data.records.filter((item) => item.petId !== pet.id);
   state.data.events = state.data.events.filter((item) => item.petId !== pet.id);
@@ -1049,7 +1241,11 @@ function deletePet() {
   navigate(state.data.pets.length ? "app" : "pet-form");
 }
 
-function deleteEvent(id) {
+async function deleteEvent(id) {
+  if (!isDemoMode()) {
+    const deleted = await runBusy(() => api.deleteEvent(id));
+    if (deleted === null && state.globalError) return;
+  }
   state.data.events = state.data.events.filter((event) => event.id !== id);
   saveData();
   showToast("일정이 삭제됐어요.");
@@ -1060,17 +1256,22 @@ function naverMapSearchUrl(hospital) {
   return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
 }
 
-function editUser() {
+async function editUser() {
   const name = prompt("이름", state.data.user.name);
   if (name === null) return;
-  const email = prompt("이메일", state.data.user.email);
-  if (email === null) return;
-  state.data.user = { name: name.trim() || state.data.user.name, email: email.trim() || state.data.user.email };
+  const normalized = name.trim() || state.data.user.name;
+  if (!isDemoMode()) {
+    const result = await runBusy(() => api.updateMe({ name: normalized }));
+    if (!result?.user) return;
+    state.data.user = result.user;
+  } else {
+    state.data.user = { ...state.data.user, name: normalized };
+  }
   saveData();
   showToast("계정 정보가 수정됐어요.");
 }
 
-function logout() {
+async function logout() {
   if (state.data.user?.demo) {
     localStorage.removeItem(STORE_KEY);
     localStorage.removeItem(SESSION_KEY);
@@ -1081,6 +1282,10 @@ function logout() {
     navigate("intro", { replace: true });
     return;
   }
+  await runBusy(() => api.logout());
+  api.clearSession();
+  state.data = emptyData();
+  state.selectedPetId = "";
   setSession("logged-out");
   state.tab = "home";
   navigate("signup", { replace: true });
@@ -1107,8 +1312,13 @@ function exportUserData() {
   showToast("내 데이터 파일을 준비했어요.");
 }
 
-function deleteAllData() {
+async function deleteAllData() {
   if (!confirm("계정, 반려동물, 건강 기록과 일정을 모두 삭제할까요? 이 작업은 되돌릴 수 없어요.")) return;
+  if (!isDemoMode()) {
+    const deleted = await runBusy(() => api.deleteMe());
+    if (deleted === null && state.globalError) return;
+    api.clearSession();
+  }
   localStorage.removeItem(STORE_KEY);
   localStorage.removeItem(SESSION_KEY);
   state.data = emptyData();

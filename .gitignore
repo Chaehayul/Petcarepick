@@ -3,6 +3,7 @@
 **/.env.*.local
 node_modules/
 backend/src/generated/
+backend/generated-client/
 .netlify/
 dist/
 .playwright-cli/

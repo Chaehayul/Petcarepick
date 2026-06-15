@@ -1,6 +1,7 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { reportSchema } from "../src/validation.js";
 
 const app = createApp();
 
@@ -37,5 +38,14 @@ describe("Petcarepick API", () => {
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe("NOT_FOUND");
     expect(response.body.error.requestId).toBeTruthy();
+  });
+
+  it("accepts portfolio demo pet ids for health reports", () => {
+    const input = reportSchema.parse({
+      pet: { id: "demo-pet-1", name: "몽치" },
+      records: [],
+    });
+
+    expect(input.pet.id).toBe("demo-pet-1");
   });
 });

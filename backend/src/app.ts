@@ -20,7 +20,9 @@ import {
   recordPatchSchema,
   recordSchema,
   refreshSchema,
+  reportSchema,
   signupSchema,
+  userPatchSchema,
 } from "./validation.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -230,6 +232,21 @@ export function createApp() {
     response.json({ user });
   });
 
+  app.patch("/api/users/me", requireAuth, async (request, response) => {
+    const input = userPatchSchema.parse(request.body);
+    const user = await requireDatabase().user.update({
+      where: { id: request.user!.id },
+      data: input,
+      select: { id: true, name: true, email: true, createdAt: true, updatedAt: true },
+    });
+    response.json({ user });
+  });
+
+  app.delete("/api/users/me", requireAuth, async (request, response) => {
+    await requireDatabase().user.delete({ where: { id: request.user!.id } });
+    response.status(204).end();
+  });
+
   app.get("/api/pets", requireAuth, async (request, response) => {
     const pets = await requireDatabase().pet.findMany({
       where: { userId: request.user!.id },
@@ -367,6 +384,16 @@ export function createApp() {
     response.status(201).json({ feedback });
   });
 
+  app.get("/api/pets/:petId/feedback", requireAuth, async (request, response) => {
+    await ownedPet(request.user!.id, routeParam(request, "petId"));
+    const feedback = await requireDatabase().recommendationFeedback.findMany({
+      where: { petId: routeParam(request, "petId") },
+      orderBy: { createdAt: "asc" },
+      take: 500,
+    });
+    response.json({ feedback });
+  });
+
   app.get("/api/chat/sessions", requireAuth, async (request, response) => {
     const sessions = await requireDatabase().chatSession.findMany({
       where: { userId: request.user!.id },
@@ -413,8 +440,33 @@ export function createApp() {
     response.json({ ...result, sessionId });
   });
 
-  app.post("/api/reports/health", async (request, response) => {
-    response.json(await createHealthReport(request.body));
+  app.get("/api/pets/:petId/reports", requireAuth, async (request, response) => {
+    const petId = routeParam(request, "petId");
+    await ownedPet(request.user!.id, petId);
+    const reports = await requireDatabase().healthReport.findMany({
+      where: { petId, userId: request.user!.id },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    });
+    response.json({ reports });
+  });
+
+  app.post("/api/reports/health", optionalAuth, async (request, response) => {
+    const input = reportSchema.parse(request.body);
+    const result = await createHealthReport(input);
+    let savedReport = null;
+    if (request.user && databaseEnabled()) {
+      await ownedPet(request.user.id, input.pet.id);
+      savedReport = await requireDatabase().healthReport.create({
+        data: {
+          userId: request.user.id,
+          petId: input.pet.id,
+          report: result.report,
+          source: result.source,
+        },
+      });
+    }
+    response.json({ ...result, savedReportId: savedReport?.id });
   });
 
   app.get("/api/openapi.json", (_request, response) => {

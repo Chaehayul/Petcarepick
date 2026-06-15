@@ -15,6 +15,10 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(40),
 });
 
+export const userPatchSchema = z.object({
+  name: z.string().trim().min(2).max(30),
+});
+
 export const petSchema = z.object({
   name: z.string().trim().min(1).max(30),
   type: z.string().trim().min(1).max(30),
@@ -65,4 +69,12 @@ export const chatSchema = z.object({
   recentRecords: z.array(z.unknown()).max(100).default([]),
   conversation: z.array(z.unknown()).max(20).default([]),
   sessionId: z.string().uuid().optional(),
+});
+
+export const reportSchema = z.object({
+  pet: z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+  }).passthrough(),
+  records: z.array(z.unknown()).max(450).default([]),
 });

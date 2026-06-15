@@ -1,5 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/prisma/client.js";
+import { PrismaClient } from "../generated-client/client.js";
 import { config } from "./config.js";
 
 let client: PrismaClient | null = null;
