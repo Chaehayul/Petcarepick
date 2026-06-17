@@ -300,8 +300,38 @@ function icon(name) {
     download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
     replay: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
+    paw: '<circle cx="5.5" cy="9.5" r="2.2"/><circle cx="10" cy="6" r="2.2"/><circle cx="14" cy="6" r="2.2"/><circle cx="18.5" cy="9.5" r="2.2"/><path d="M7.5 18.5c1-4 3-6 4.5-6s3.5 2 4.5 6c.4 1.7-.7 3-2.3 2.3-1.4-.6-3-.6-4.4 0-1.6.7-2.7-.6-2.3-2.3Z"/>',
+    dog: '<path d="M5 10V7.5C5 5.6 6.6 4 8.5 4h7C17.4 4 19 5.6 19 7.5V10"/><path d="M7 10c-2 0-3 1.5-3 3.2V18c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4.8c0-1.7-1-3.2-3-3.2"/><path d="M8 4 6 8M16 4l2 4"/><path d="M9 14h.01M15 14h.01"/><path d="M10 17c1 .7 3 .7 4 0"/>',
+    cat: '<path d="M5 11 4 4l5 3h6l5-3-1 7"/><path d="M6 11a6 6 0 0 0 12 0"/><path d="M9 13h.01M15 13h.01"/><path d="M12 15v2"/><path d="M8 17h8"/><path d="M3 14h4M17 14h4"/>',
+    bird: '<path d="M7 19c6 0 10-4 10-10V7l3-2-4-.5C14.5 2.5 12 2 10 3.5 7.5 5.4 7 8.6 9 11"/><path d="M9 11 4 16l5 1"/><path d="M13 7h.01"/>',
+    rabbit: '<path d="M8 13c-2-4-2-9 0-10 2-1 3 3 3 7"/><path d="M16 13c2-4 2-9 0-10-2-1-3 3-3 7"/><path d="M6 15a6 6 0 0 0 12 0c0-3-2.7-5-6-5s-6 2-6 5Z"/><path d="M10 15h.01M14 15h.01"/><path d="M12 17v2"/>',
+    hamster: '<circle cx="12" cy="13" r="6"/><circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><path d="M10 13h.01M14 13h.01"/><path d="M11 16h2"/>',
+    meal: '<path d="M4 3v8"/><path d="M8 3v8"/><path d="M4 7h4"/><path d="M6 11v10"/><path d="M15 3c3 2 4 5 3 9-.5 2-2 3-4 3v6"/>',
+    activity: '<path d="M13 4a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z"/><path d="m8 22 2-7-3-2 2-5 4 2 3-2"/><path d="m15 22-3-6 2-4"/><path d="m17 13 3 2"/>',
+    stool: '<path d="M7 6h10"/><path d="M8 6l1 14h6l1-14"/><path d="M10 10h4"/><path d="M10.5 14h3"/>',
+    behavior: '<circle cx="12" cy="12" r="8"/><path d="M9 10h.01M15 10h.01"/><path d="M8.5 14.5c2 2 5 2 7 0"/>',
+    weight: '<path d="M6 7h12l2 14H4L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/><path d="M12 12v4"/><path d="m10 14 2-2 2 2"/>',
+    food: '<path d="M4 12h16"/><path d="M6 12v3a6 6 0 0 0 12 0v-3"/><path d="M9 8c0-2 1-3 3-4 2 1 3 2 3 4"/><path d="M8 20h8"/>',
+    supplement: '<path d="M10 21 3 14a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7Z"/><path d="m8 8 8 8"/>',
+    snack: '<path d="M7 4h10l2 6-7 11L5 10Z"/><path d="M8 10h8"/><path d="m10 14 2 3 2-3"/>',
   };
   return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.sparkles}</svg>`;
+}
+
+function iconBadge(name, className = "") {
+  return `<span class="icon-badge ${className}">${icon(name)}</span>`;
+}
+
+function animalIcon(type) {
+  return { 강아지: "dog", 고양이: "cat", 앵무새: "bird", 토끼: "rabbit", 햄스터: "hamster", 기타: "paw" }[type] || "paw";
+}
+
+function recordIcon(category) {
+  return { meal: "meal", activity: "activity", stool: "stool", behavior: "behavior", weight: "weight" }[category] || "check";
+}
+
+function productIcon(product) {
+  return product.type === "supplement" ? "supplement" : product.type === "snack" ? "snack" : "food";
 }
 
 function render() {
@@ -378,22 +408,22 @@ function renderPlatform() {
 }
 
 function renderSplash() {
-  return appShell(`<section class="splash-screen"><div class="brand-symbol">🐾</div><h1>PetCarePick</h1><p>우리 아이 맞춤 건강관리</p><span></span></section>`, { nav: false, compact: true });
+  return appShell(`<section class="splash-screen"><div class="brand-symbol">${icon("paw")}</div><h1>PetCarePick</h1><p>우리 아이 맞춤 건강관리</p><span></span></section>`, { nav: false, compact: true });
 }
 
 function renderIntro() {
   if (state.onboardingStep === 0) {
-    return appShell(`<section class="intro onboarding-purple"><div class="onboarding-content"><div class="brand-symbol">${state.data.pets[0] ? animalEmoji(state.data.pets[0].type) : "🐶"}</div><h1>획일화된 펫 정보는<br>그만.</h1><p>우리 아이의 나이, 체중, 질환에<br>맞춘 개인화 건강관리</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i class="active"></i><i></i><i></i></div><button class="primary" data-onboarding-next>시작하기</button>${state.data.user ? '<button class="link" data-route="app">기존 데이터로 계속하기</button>' : '<button class="link" data-route="signup">이미 계정이 있나요? 로그인</button>'}</div></section>`, { nav: false, compact: true });
+    return appShell(`<section class="intro onboarding-purple"><div class="onboarding-content"><div class="brand-symbol">${state.data.pets[0] ? animalEmoji(state.data.pets[0].type) : icon("dog")}</div><h1>획일화된 펫 정보는<br>그만.</h1><p>우리 아이의 나이, 체중, 질환에<br>맞춘 개인화 건강관리</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i class="active"></i><i></i><i></i></div><button class="primary" data-onboarding-next>시작하기</button>${state.data.user ? '<button class="link" data-route="app">기존 데이터로 계속하기</button>' : '<button class="link" data-route="signup">이미 계정이 있나요? 로그인</button>'}</div></section>`, { nav: false, compact: true });
   }
   if (state.onboardingStep === 1) {
-    return appShell(`<section class="intro onboarding-white"><div class="onboarding-content"><div class="brand-symbol">🥩</div><h1>딱 맞는 사료·운동을<br>추천해드려요</h1><p>질환·알레르기 성분 자동 제외<br>나이·체중 기반 맞춤 추천</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i></i><i class="active"></i><i></i></div><button class="primary" data-onboarding-next>다음</button><button class="link" data-route="signup">건너뛰기</button></div></section>`, { nav: false, compact: true });
+    return appShell(`<section class="intro onboarding-white"><div class="onboarding-content"><div class="brand-symbol">${icon("food")}</div><h1>딱 맞는 사료·운동을<br>추천해드려요</h1><p>질환·알레르기 성분 자동 제외<br>나이·체중 기반 맞춤 추천</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i></i><i class="active"></i><i></i></div><button class="primary" data-onboarding-next>다음</button><button class="link" data-route="signup">건너뛰기</button></div></section>`, { nav: false, compact: true });
   }
-  return appShell(`<section class="intro onboarding-white"><div class="onboarding-content"><div class="brand-symbol warning-symbol">⚠️</div><h1>이상 징후를 먼저<br>알려드려요</h1><p>식욕·체중·활동량 변화를 분석해<br>위험 신호를 조기에 감지</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i></i><i></i><i class="active"></i></div><button class="primary" data-route="signup">시작하기</button><button class="link" data-route="signup">건너뛰기</button></div></section>`, { nav: false, compact: true });
+  return appShell(`<section class="intro onboarding-white"><div class="onboarding-content"><div class="brand-symbol warning-symbol">${icon("alert")}</div><h1>이상 징후를 먼저<br>알려드려요</h1><p>식욕·체중·활동량 변화를 분석해<br>위험 신호를 조기에 감지</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i></i><i></i><i class="active"></i></div><button class="primary" data-route="signup">시작하기</button><button class="link" data-route="signup">건너뛰기</button></div></section>`, { nav: false, compact: true });
 }
 
 function renderSignup() {
   const signup = state.authMode === "signup";
-  return appShell(`<section class="page auth-page"><div class="auth-brand"><div class="brand-symbol">🐾</div><h1>PetCarePick</h1><p>${signup ? "처음 만나 반가워요!" : "다시 오신 것을 환영해요!"}</p></div><div class="auth-tabs"><button class="${signup ? "" : "active"}" data-auth-mode="login">로그인</button><button class="${signup ? "active" : ""}" data-auth-mode="signup">회원가입</button></div>${signup ? `<form class="form" data-signup><label>이름<input name="name" autocomplete="name" required maxlength="20" placeholder="이름 입력"></label><label>이메일<input name="email" type="email" autocomplete="email" required placeholder="이메일 입력"></label><label>비밀번호<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="비밀번호 입력"></label><label>비밀번호 확인<input name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" required placeholder="비밀번호 확인"></label><button class="primary">가입 완료</button></form>` : `<form class="form" data-login><label>별명 또는 이메일<input name="email" type="email" autocomplete="email" required placeholder="등록하신 이메일 입력"></label><label>비밀번호<input name="password" type="password" autocomplete="current-password" required placeholder="비밀번호 입력"></label><button class="primary">로그인</button></form>`}</section>`, { nav: false });
+  return appShell(`<section class="page auth-page"><div class="auth-brand"><div class="brand-symbol">${icon("paw")}</div><h1>PetCarePick</h1><p>${signup ? "처음 만나 반가워요!" : "다시 오신 것을 환영해요!"}</p></div><div class="auth-tabs"><button class="${signup ? "" : "active"}" data-auth-mode="login">로그인</button><button class="${signup ? "active" : ""}" data-auth-mode="signup">회원가입</button></div>${signup ? `<form class="form" data-signup><label>이름<input name="name" autocomplete="name" required maxlength="20" placeholder="이름 입력"></label><label>이메일<input name="email" type="email" autocomplete="email" required placeholder="이메일 입력"></label><label>비밀번호<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="비밀번호 입력"></label><label>비밀번호 확인<input name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" required placeholder="비밀번호 확인"></label><button class="primary">가입 완료</button></form>` : `<form class="form" data-login><label>별명 또는 이메일<input name="email" type="email" autocomplete="email" required placeholder="등록하신 이메일 입력"></label><label>비밀번호<input name="password" type="password" autocomplete="current-password" required placeholder="비밀번호 입력"></label><button class="primary">로그인</button></form>`}</section>`, { nav: false });
 }
 
 function renderVerify() {
@@ -401,7 +431,17 @@ function renderVerify() {
 }
 
 function renderPetIntro() {
-  return appShell(`<section class="pet-intro"><div class="brand-symbol">🐾</div><h1>첫 번째 가족을<br>등록해볼까요?</h1><p>반려동물 정보를 입력하면<br>맞춤 건강관리가 시작돼요</p><button class="primary" data-start-pet>등록 시작</button></section>`, { nav: false });
+  const demoCopy = isDemoMode()
+    ? '<p class="demo-mini-copy">포트폴리오 데모에서도 직접 등록 흐름을 체험할 수 있어요.</p>'
+    : "";
+  return appShell(`<section class="pet-intro refined-pet-intro">
+    ${iconBadge("paw", "hero")}
+    <span class="intro-kicker">PROFILE SETUP</span>
+    <h1>첫 번째 가족을<br>등록해볼까요?</h1>
+    <p>나이, 체중, 질환, 알레르기 정보가 맞춤 추천과 건강 리포트의 기준이 돼요.</p>
+    ${demoCopy}
+    <button class="primary" data-start-pet>반려동물 등록하기</button>
+  </section>`, { nav: false });
 }
 
 function renderPetForm() {
@@ -413,22 +453,109 @@ function renderPetForm() {
   const draft = state.petDraft;
   const progress = Math.min(3, Math.max(1, state.petFormStep));
   if (state.petFormStep === 0) {
-    const animals = [["강아지","🐶"],["고양이","🐱"],["앵무새","🦜"],["햄스터","🐹"],["토끼","🐰"],["기타","🐾"]];
-    return appShell(`<section class="page pet-register"><header><h1>첫 번째 가족을<br>등록해볼까요?</h1><p>반려동물 정보를 입력하면<br>맞춤 건강관리가 시작돼요</p></header><div class="animal-grid">${animals.map(([type, emoji]) => `<button class="${draft.type === type ? "active" : ""}" data-pet-type="${type}"><span>${emoji}</span><strong>${type}</strong></button>`).join("")}</div><button class="primary" data-pet-next>다음으로</button></section>`, { nav: false });
+    const animals = [
+      ["강아지", "dog", "산책·피부·체중 관리"],
+      ["고양이", "cat", "음수량·비뇨기 관리"],
+      ["앵무새", "bird", "활동·영양 균형"],
+      ["햄스터", "hamster", "소동물 식이 관리"],
+      ["토끼", "rabbit", "치아·장 건강 관리"],
+      ["기타", "paw", "직접 입력"],
+    ];
+    return appShell(`<section class="page pet-register">
+      <header class="pet-register-hero">
+        ${iconBadge("paw", "hero")}
+        <span>1 / 4</span>
+        <h1>어떤 반려동물인가요?</h1>
+        <p>종류에 따라 기록 항목과 추천 기준을 다르게 적용해요.</p>
+      </header>
+      <div class="animal-grid refined">
+        ${animals.map(([type, iconName, note]) => `<button class="${draft.type === type ? "active" : ""}" data-pet-type="${type}">
+          ${iconBadge(iconName)}
+          <strong>${type}</strong>
+          <small>${note}</small>
+        </button>`).join("")}
+      </div>
+      <button class="primary" data-pet-next>다음으로</button>
+    </section>`, { nav: false });
   }
-  const header = `<header class="registration-header"><h1>반려동물 등록</h1><p>${state.petFormStep === 1 ? "첫 번째 가족을 등록해볼까요?" : state.petFormStep === 2 ? "건강 정보를 입력해주세요" : "알림 루틴을 설정해주세요"}</p><div class="registration-progress"><span style="width:${progress / 3 * 100}%"></span></div><strong>${progress}단계 / 3 — ${state.petFormStep === 1 ? "기본 정보" : state.petFormStep === 2 ? "건강 정보 (선택)" : "루틴 설정 (선택)"}</strong></header>`;
+  const titles = {
+    1: ["기본 정보를 알려주세요", "나이와 체중은 급여량, 운동량, 성장 단계 계산에 사용돼요."],
+    2: ["건강 정보를 확인할게요", "질환과 알레르기는 추천에서 제외·우선순위를 정하는 기준이에요."],
+    3: ["기록 루틴을 정해볼까요?", "꾸준한 기록이 건강 리포트와 이상 징후 분석의 정확도를 높여요."],
+  };
+  const header = `<header class="registration-header refined">
+    <button class="icon-button plain" type="button" data-pet-prev aria-label="이전 단계">${icon("back")}</button>
+    <div>
+      <span>${state.petFormStep + 1} / 4</span>
+      <h1>${titles[state.petFormStep][0]}</h1>
+      <p>${titles[state.petFormStep][1]}</p>
+    </div>
+    <div class="registration-progress"><span style="width:${(state.petFormStep + 1) / 4 * 100}%"></span></div>
+  </header>`;
   if (state.petFormStep === 1) {
-    return appShell(`<section class="page pet-register">${header}<form class="form" data-pet-basic><div class="pet-photo">${animalEmoji(draft.type)}<small>사진 추가</small></div><label>이름 *<input name="name" value="${escapeHtml(draft.name)}" required placeholder="예: 몽치"></label><div class="two-columns"><label>품종<input name="breed" value="${escapeHtml(draft.breed)}" required placeholder="예: 말티즈"></label><label>나이 (살) *<input name="age" type="number" min="0" max="40" value="${draft.age}" required></label></div><div class="two-columns"><label>체중 (kg) *<input name="weight" type="number" min=".1" max="150" step=".1" value="${draft.weight}" required></label><label>성별<select name="gender"><option ${draft.gender === "남아" ? "selected" : ""}>남아</option><option ${draft.gender === "여아" ? "selected" : ""}>여아</option></select></label></div><label>중성화 여부<select name="neutered"><option ${draft.neutered === "했어요" ? "selected" : ""}>했어요</option><option ${draft.neutered === "안 했어요" ? "selected" : ""}>안 했어요</option></select></label><button class="primary">다음</button></form></section>`, { nav: false });
+    return appShell(`<section class="page pet-register">${header}
+      <form class="form pet-onboarding-form" data-pet-basic>
+        <div class="pet-photo icon-photo">${iconBadge(animalIcon(draft.type))}<small>프로필 사진은 나중에 추가</small></div>
+        ${isDemoMode() ? '<button class="secondary compact-action" type="button" data-fill-demo-pet>예시 정보 채우기</button>' : ""}
+        <label>이름 *<input name="name" value="${escapeHtml(draft.name)}" required placeholder="예: 몽치"></label>
+        <div class="two-columns">
+          <label>품종 *<input name="breed" value="${escapeHtml(draft.breed)}" required placeholder="예: 말티즈"></label>
+          <label>나이 (살) *<input name="age" type="number" min="0" max="40" value="${draft.age}" required placeholder="4"></label>
+        </div>
+        <div class="two-columns">
+          <label>체중 (kg) *<input name="weight" type="number" min=".1" max="150" step=".1" value="${draft.weight}" required placeholder="4.2"></label>
+          <label>성별<select name="gender"><option ${draft.gender === "남아" ? "selected" : ""}>남아</option><option ${draft.gender === "여아" ? "selected" : ""}>여아</option></select></label>
+        </div>
+        <label>중성화 여부<select name="neutered"><option ${draft.neutered === "했어요" ? "selected" : ""}>했어요</option><option ${draft.neutered === "안 했어요" ? "selected" : ""}>안 했어요</option></select></label>
+        <button class="primary">건강 정보로 이동</button>
+      </form>
+    </section>`, { nav: false });
   }
   if (state.petFormStep === 2) {
-    return appShell(`<section class="page pet-register">${header}<form class="form" data-pet-health><label>질병 / 질환 기록<input name="conditions" value="${escapeHtml(draft.conditions.join(", "))}" placeholder="예: 슬개골 탈구, 피부염"></label><label>알레르기<input name="allergies" value="${escapeHtml(draft.allergies.join(", "))}" placeholder="예: 닭고기, 밀"></label><label>오늘의 루틴<input name="routines" value="${escapeHtml(draft.routines.join(", "))}" placeholder="예: 아침 식사, 저녁 산책"></label><p class="form-help">여러 항목은 쉼표로 구분해주세요.</p><button class="primary">다음 — 완료</button></form></section>`, { nav: false });
+    return appShell(`<section class="page pet-register">${header}
+      <form class="form pet-onboarding-form" data-pet-health>
+        <div class="input-guide">
+          <span>${icon("alert")}</span>
+          <p>없으면 비워도 괜찮아요. 입력한 정보는 추천 필터와 리포트 문장에 반영돼요.</p>
+        </div>
+        <label>질병 / 질환 기록<input name="conditions" value="${escapeHtml(draft.conditions.join(", "))}" placeholder="예: 슬개골 탈구, 피부염"></label>
+        <label>알레르기<input name="allergies" value="${escapeHtml(draft.allergies.join(", "))}" placeholder="예: 닭고기, 밀"></label>
+        <label>오늘의 루틴<input name="routines" value="${escapeHtml(draft.routines.join(", "))}" placeholder="예: 아침 식사, 저녁 산책"></label>
+        <p class="form-help">여러 항목은 쉼표로 구분해주세요.</p>
+        <button class="primary">루틴 설정하기</button>
+      </form>
+    </section>`, { nav: false });
   }
-  return appShell(`<section class="page pet-register">${header}<form class="routine-form" data-pet-routine>${[["morning","아침 기록 알림","오전 8:00"],["evening","저녁 기록 알림","오후 8:00"],["anomaly","이상 징후 알림","감지 즉시"]].map(([id,label,time]) => `<label><span><strong>${label}</strong><small>${time}</small></span><input type="checkbox" name="${id}" ${draft.reminders[id] ? "checked" : ""}></label>`).join("")}<button class="primary">등록 완료</button><button class="secondary" type="button" data-skip-routine>나중에 설정하기</button></form></section>`, { nav: false });
+  return appShell(`<section class="page pet-register">${header}
+    <form class="routine-form refined" data-pet-routine>
+      ${[
+        ["morning", "아침 기록 알림", "오전 8:00", "meal"],
+        ["evening", "저녁 기록 알림", "오후 8:00", "edit"],
+        ["anomaly", "이상 징후 알림", "감지 즉시", "alert"],
+      ].map(([id,label,time,iconName]) => `<label>
+        ${iconBadge(iconName)}
+        <span><strong>${label}</strong><small>${time}</small></span>
+        <input type="checkbox" name="${id}" ${draft.reminders[id] ? "checked" : ""}>
+      </label>`).join("")}
+      <button class="primary">등록 완료</button>
+      <button class="secondary" type="button" data-skip-routine>나중에 설정하기</button>
+    </form>
+  </section>`, { nav: false });
 }
 
 function renderPetComplete() {
   const pet = currentPet();
-  return appShell(`<section class="completion-screen"><div class="brand-symbol">🎉</div><h1>${escapeHtml(pet?.name || "반려동물")} 맞춤 추천<br>준비됐어요!</h1><p>나이·체중·질환을 분석해서<br>딱 맞는 건강관리를 제안할게요</p><section><span>이름</span><strong>${escapeHtml(pet?.name || "")}</strong><span>종</span><strong>${escapeHtml(pet?.breed || pet?.type || "")} · ${pet?.age || 0}살 · ${pet?.weight || 0}kg</strong><span>건강 상태</span><strong>${pet?.conditions?.length ? pet.conditions.join(", ") : "특이사항 없음"}</strong></section><button class="primary" data-route="app">홈으로 이동</button></section>`, { nav: false, compact: true });
+  return appShell(`<section class="completion-screen">
+    ${iconBadge("check", "hero")}
+    <h1>${escapeHtml(pet?.name || "반려동물")} 맞춤 추천<br>준비됐어요!</h1>
+    <p>프로필을 기준으로 건강 요약, 추천, 기록 루틴을 바로 시작할 수 있어요.</p>
+    <section>
+      <span>이름</span><strong>${escapeHtml(pet?.name || "")}</strong>
+      <span>종</span><strong>${escapeHtml(pet?.breed || pet?.type || "")} · ${pet?.age || 0}살 · ${pet?.weight || 0}kg</strong>
+      <span>건강 상태</span><strong>${pet?.conditions?.length ? pet.conditions.join(", ") : "특이사항 없음"}</strong>
+    </section>
+    <button class="primary" data-route="app">홈으로 이동</button>
+  </section>`, { nav: false, compact: true });
 }
 
 function renderApp() {
@@ -446,7 +573,7 @@ function renderHome(pet) {
   const metrics = latestMetrics(pet);
   const done = completion(pet, localDate());
   const analysis = healthAnalysis(pet);
-  return appShell(`<section class="page dashboard"><header class="dashboard-header"><div><h1>안녕하세요, ${escapeHtml(state.data.user.name)}님 👋</h1><p>${escapeHtml(pet.name)}의 오늘을 확인해보세요</p></div><button class="avatar-button" data-route="pet-switch">${animalEmoji(pet.type)}</button></header><section class="pet-summary"><div><span>${animalEmoji(pet.type)}</span><div><h2>${escapeHtml(pet.name)}</h2><p>${escapeHtml(pet.breed)} · ${pet.age}살 · ${pet.weight}kg</p><em>${analysis.status}</em></div></div><button data-route="report">리포트 →</button></section>${analysis.alert ? `<button class="health-alert" data-route="anomaly"><span class="alert-dot"></span><span><strong>${analysis.alert.title}</strong><small>${analysis.alert.summary}</small></span>${icon("chevron")}</button>` : ""}<section class="section-title"><div><h2>오늘의 건강 요약</h2><p>${done}/5 기록 완료</p></div></section><section class="metric-grid"><article><strong>${metrics.appetite ?? "-"}${metrics.appetite === null ? "" : "%"}</strong><span>식사량</span><i style="--value:${metrics.appetite ?? 0}%"></i></article><article><strong>${metrics.activity ?? "-"}${metrics.activity === null ? "" : "분"}</strong><span>활동량</span><i style="--value:${Math.min(100, (metrics.activity ?? 0) * 2)}%"></i></article><article><strong>${metrics.weight ?? pet.weight}</strong><span>체중kg</span><i style="--value:${Math.min(100, ((metrics.weight ?? pet.weight) / Math.max(1, pet.weight)) * 65)}%"></i></article></section><button class="primary" data-tab="record">${icon("edit")} 오늘 기록하기</button><section class="section-title"><div><h2>${escapeHtml(pet.name)} 맞춤 영양 포인트</h2><p>${ageStage(pet.age)} · ${seasonLabel()}</p></div></section><div class="nutrition-list">${nutritionInsights(pet).map((item) => `<article><span>${item.icon}</span><div><strong>${item.name}</strong><p>${item.reason}</p></div></article>`).join("")}</div></section>`);
+  return appShell(`<section class="page dashboard"><header class="dashboard-header"><div><h1>안녕하세요, ${escapeHtml(state.data.user.name)}님</h1><p>${escapeHtml(pet.name)}의 오늘을 확인해보세요</p></div><button class="avatar-button" data-route="pet-switch">${animalEmoji(pet.type)}</button></header><section class="pet-summary"><div><span>${animalEmoji(pet.type)}</span><div><h2>${escapeHtml(pet.name)}</h2><p>${escapeHtml(pet.breed)} · ${pet.age}살 · ${pet.weight}kg</p><em>${analysis.status}</em></div></div><button data-route="report">리포트 →</button></section>${analysis.alert ? `<button class="health-alert" data-route="anomaly"><span class="alert-dot"></span><span><strong>${analysis.alert.title}</strong><small>${analysis.alert.summary}</small></span>${icon("chevron")}</button>` : ""}<section class="section-title"><div><h2>오늘의 건강 요약</h2><p>${done}/5 기록 완료</p></div></section><section class="metric-grid"><article><strong>${metrics.appetite ?? "-"}${metrics.appetite === null ? "" : "%"}</strong><span>식사량</span><i style="--value:${metrics.appetite ?? 0}%"></i></article><article><strong>${metrics.activity ?? "-"}${metrics.activity === null ? "" : "분"}</strong><span>활동량</span><i style="--value:${Math.min(100, (metrics.activity ?? 0) * 2)}%"></i></article><article><strong>${metrics.weight ?? pet.weight}</strong><span>체중kg</span><i style="--value:${Math.min(100, ((metrics.weight ?? pet.weight) / Math.max(1, pet.weight)) * 65)}%"></i></article></section><button class="primary" data-tab="record">${icon("edit")} 오늘 기록하기</button><section class="section-title"><div><h2>${escapeHtml(pet.name)} 맞춤 영양 포인트</h2><p>${ageStage(pet.age)} · ${seasonLabel()}</p></div></section><div class="nutrition-list">${nutritionInsights(pet).map((item) => `<article>${iconBadge("supplement")}<div><strong>${item.name}</strong><p>${item.reason}</p></div></article>`).join("")}</div></section>`);
 }
 
 function renderRecord(pet) {
@@ -475,7 +602,7 @@ function renderRecommend(pet) {
 
 function renderProductCard(product, pet, index) {
   const feedback = latestFeedback(product.id, pet.id);
-  return `<article class="product-card"><button class="product-main" data-product="${product.id}"><span>${product.icon}</span><div><div class="rank-row"><em>추천 ${index + 1}위</em><small>${product.matchScore}% 맞춤</small></div><h2>${product.name}</h2><p>${recommendationReason(product, pet)}</p><div class="tag-row">${product.ingredients.slice(0, 3).map((item) => `<em>${item}</em>`).join("")}</div></div><b>상세 →</b></button><div class="feedback-actions"><span>${feedback ? `최근 반응 · ${feedback.value}` : `${pet.name}가 먹어본 뒤 알려주세요`}</span><button data-feedback="${product.id}" data-value="잘 먹어요">잘 먹어요</button><button data-feedback="${product.id}" data-value="잘 안 먹어요">안 먹어요</button></div></article>`;
+  return `<article class="product-card"><button class="product-main" data-product="${product.id}">${iconBadge(productIcon(product), "product-icon")}<div><div class="rank-row"><em>추천 ${index + 1}위</em><small>${product.matchScore}% 맞춤</small></div><h2>${product.name}</h2><p>${recommendationReason(product, pet)}</p><div class="tag-row">${product.ingredients.slice(0, 3).map((item) => `<em>${item}</em>`).join("")}</div></div><b>상세 →</b></button><div class="feedback-actions"><span>${feedback ? `최근 반응 · ${feedback.value}` : `${pet.name}가 먹어본 뒤 알려주세요`}</span><button data-feedback="${product.id}" data-value="잘 먹어요">잘 먹어요</button><button data-feedback="${product.id}" data-value="잘 안 먹어요">안 먹어요</button></div></article>`;
 }
 
 function renderCalendar(pet) {
@@ -543,7 +670,7 @@ function renderChat() {
     : state.aiStatus === "unavailable"
       ? '<button class="ai-connection unavailable" data-check-ai>기본 분석 모드 · 다시 확인</button>'
       : '<button class="ai-connection checking" data-check-ai>AI 연결 확인 중</button>';
-  return appShell(`<section class="chat-page"><header class="chat-header"><button class="icon-button plain" data-back aria-label="뒤로">${icon("back")}</button><div class="chat-ai-avatar">✦</div><div><h1>AI 헬스 매니저</h1><p><i></i>${pet ? `${escapeHtml(pet.name)} 프로필로 상담 중` : "프로필을 등록해주세요"}</p></div>${status}</header>${state.aiError ? `<div class="chat-system-notice">${escapeHtml(state.aiError)}</div>` : ""}${pet ? `<button class="chat-pet-context" data-route="pet-switch"><span>${animalEmoji(pet.type)}</span><div><strong>${escapeHtml(pet.name)}</strong><small>${escapeHtml(pet.breed)} · ${pet.age}살 · ${pet.weight}kg</small></div><em>변경</em></button>` : ""}<div class="chat-list"><section class="quick-prompts"><strong>무엇을 도와드릴까요?</strong><div>${prompts.map((prompt) => `<button data-chat-prompt="${escapeHtml(prompt)}" ${state.chatSending ? "disabled" : ""}>${escapeHtml(prompt)}</button>`).join("")}</div></section>${state.data.chats.map((message) => `<div class="chat-message ${message.from}"><span>${message.from === "ai" ? "✦" : escapeHtml(state.data.user?.name?.slice(0, 1) || "나")}</span><article><small>${message.from === "ai" ? "AI 헬스 매니저" : "보호자"}</small><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p></article></div>`).join("")}</div><footer class="chat-composer"><p>AI 답변은 참고용이며 진단을 대신하지 않아요.</p><form class="chat-form" data-chat-form><textarea name="message" rows="1" maxlength="500" autocomplete="off" placeholder="건강·영양 고민을 물어보세요" ${state.chatSending ? "disabled" : ""}></textarea><button aria-label="전송" ${state.chatSending ? "disabled" : ""}>${state.chatSending ? '<span class="mini-loader"></span>' : icon("send")}</button></form></footer></section>`, { nav: false, compact: true });
+  return appShell(`<section class="chat-page"><header class="chat-header"><button class="icon-button plain" data-back aria-label="뒤로">${icon("back")}</button><div class="chat-ai-avatar">${icon("sparkles")}</div><div><h1>AI 헬스 매니저</h1><p><i></i>${pet ? `${escapeHtml(pet.name)} 프로필로 상담 중` : "프로필을 등록해주세요"}</p></div>${status}</header>${state.aiError ? `<div class="chat-system-notice">${escapeHtml(state.aiError)}</div>` : ""}${pet ? `<button class="chat-pet-context" data-route="pet-switch"><span>${animalEmoji(pet.type)}</span><div><strong>${escapeHtml(pet.name)}</strong><small>${escapeHtml(pet.breed)} · ${pet.age}살 · ${pet.weight}kg</small></div><em>변경</em></button>` : ""}<div class="chat-list"><section class="quick-prompts"><strong>무엇을 도와드릴까요?</strong><div>${prompts.map((prompt) => `<button data-chat-prompt="${escapeHtml(prompt)}" ${state.chatSending ? "disabled" : ""}>${escapeHtml(prompt)}</button>`).join("")}</div></section>${state.data.chats.map((message) => `<div class="chat-message ${message.from}"><span>${message.from === "ai" ? icon("sparkles") : escapeHtml(state.data.user?.name?.slice(0, 1) || "나")}</span><article><small>${message.from === "ai" ? "AI 헬스 매니저" : "보호자"}</small><p>${escapeHtml(message.text).replaceAll("\n", "<br>")}</p></article></div>`).join("")}</div><footer class="chat-composer"><p>AI 답변은 참고용이며 진단을 대신하지 않아요.</p><form class="chat-form" data-chat-form><textarea name="message" rows="1" maxlength="500" autocomplete="off" placeholder="건강·영양 고민을 물어보세요" ${state.chatSending ? "disabled" : ""}></textarea><button aria-label="전송" ${state.chatSending ? "disabled" : ""}>${state.chatSending ? '<span class="mini-loader"></span>' : icon("send")}</button></form></footer></section>`, { nav: false, compact: true });
 }
 
 function renderReport() {
@@ -602,7 +729,7 @@ function renderAnomaly() {
 function renderProduct() {
   const product = catalog.find((item) => item.id === state.productId) || recommendations(currentPet(), state.recommendationMode)[0];
   const ranked = recommendations(currentPet(), product.type).find((item) => item.id === product.id);
-  return appShell(`<section class="page"><header class="page-header row"><button class="icon-button plain" data-back>${icon("back")}</button><div><h1>추천 상세</h1><p>${escapeHtml(currentPet().name)}에게 추천하는 이유</p></div></header><section class="product-detail"><span>${product.icon}</span><small>${ranked?.matchScore || 60}% 개인 맞춤</small><h1>${product.name}</h1><p>${recommendationReason(product, currentPet())}</p><div class="tag-row">${product.ingredients.map((item) => `<em>${item}</em>`).join("")}</div></section><section class="section-title"><div><h2>주요 성분</h2><p>알레르기 제외 확인 완료</p></div></section><section class="ingredient-panel">${product.ingredients.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</section><section class="section-title"><div><h2>급여 후 반응</h2><p>다음 추천 순위에 반영돼요.</p></div></section><div class="detail-actions"><button data-feedback="${product.id}" data-value="잘 먹어요">잘 먹어요</button><button data-feedback="${product.id}" data-value="잘 안 먹어요">잘 안 먹어요</button></div></section>`, { nav: false });
+  return appShell(`<section class="page"><header class="page-header row"><button class="icon-button plain" data-back>${icon("back")}</button><div><h1>추천 상세</h1><p>${escapeHtml(currentPet().name)}에게 추천하는 이유</p></div></header><section class="product-detail">${iconBadge(productIcon(product), "hero")}<small>${ranked?.matchScore || 60}% 개인 맞춤</small><h1>${product.name}</h1><p>${recommendationReason(product, currentPet())}</p><div class="tag-row">${product.ingredients.map((item) => `<em>${item}</em>`).join("")}</div></section><section class="section-title"><div><h2>주요 성분</h2><p>알레르기 제외 확인 완료</p></div></section><section class="ingredient-panel">${product.ingredients.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</section><section class="section-title"><div><h2>급여 후 반응</h2><p>다음 추천 순위에 반영돼요.</p></div></section><div class="detail-actions"><button data-feedback="${product.id}" data-value="잘 먹어요">잘 먹어요</button><button data-feedback="${product.id}" data-value="잘 안 먹어요">잘 안 먹어요</button></div></section>`, { nav: false });
 }
 
 function renderHospitals() {
@@ -658,6 +785,11 @@ function bindEvents() {
     state.petFormStep = 1;
     render();
   });
+  app.querySelector("[data-pet-prev]")?.addEventListener("click", () => {
+    state.petFormStep = Math.max(0, state.petFormStep - 1);
+    render();
+  });
+  app.querySelector("[data-fill-demo-pet]")?.addEventListener("click", fillDemoPetDraft);
   app.querySelector("[data-pet-basic]")?.addEventListener("submit", submitPetBasic);
   app.querySelector("[data-pet-health]")?.addEventListener("submit", submitPetHealth);
   app.querySelector("[data-pet-routine]")?.addEventListener("submit", submitPetRoutine);
@@ -1051,6 +1183,24 @@ function submitPetBasic(event) {
     neutered: form.get("neutered"),
   });
   state.petFormStep = 2;
+  render();
+}
+
+function fillDemoPetDraft() {
+  Object.assign(state.petDraft, {
+    name: "몽치",
+    type: state.petDraft.type || "강아지",
+    breed: state.petDraft.type === "고양이" ? "코리안숏헤어" : "말티즈",
+    age: 4,
+    weight: 4.2,
+    gender: "남아",
+    neutered: "했어요",
+    conditions: ["피부염"],
+    allergies: ["닭고기"],
+    routines: ["아침 식사", "저녁 산책"],
+    reminders: { morning: true, evening: true, anomaly: true },
+  });
+  showToast("예시 정보를 채웠어요. 자유롭게 수정해도 돼요.");
   render();
 }
 
@@ -1486,7 +1636,7 @@ function latestWeightChange(pet) {
 }
 
 function recordEmoji(category) {
-  return { meal: "🍚", activity: "🏃", stool: "🚽", behavior: "😊", weight: "⚖️" }[category] || "✓";
+  return icon(recordIcon(category));
 }
 
 function renderMonthCalendar(events) {
@@ -1553,7 +1703,7 @@ function formatDate(value) {
 }
 
 function animalEmoji(type) {
-  return { 강아지: "🐶", 고양이: "🐱", 앵무새: "🦜", 토끼: "🐰", 햄스터: "🐹", 기타: "🐾" }[type] || "🐾";
+  return iconBadge(animalIcon(type));
 }
 
 function splitList(value) {
