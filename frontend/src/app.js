@@ -330,6 +330,10 @@ function animalFace(type) {
   return { 강아지: "🐶", 고양이: "🐱", 앵무새: "🦜", 토끼: "🐰", 햄스터: "🐹", 기타: "🐾" }[type] || "🐾";
 }
 
+function softEmojiBadge(value, className = "") {
+  return `<span class="soft-emoji-badge ${className}" aria-hidden="true">${value}</span>`;
+}
+
 function recordIcon(category) {
   return { meal: "meal", activity: "activity", stool: "stool", behavior: "behavior", weight: "weight" }[category] || "check";
 }
@@ -420,7 +424,7 @@ function renderIntro() {
     return appShell(`<section class="intro onboarding-purple"><div class="onboarding-content"><div class="brand-symbol brand-pet">${state.data.pets[0] ? animalEmoji(state.data.pets[0].type) : animalEmoji("강아지")}</div><h1>획일화된 펫 정보는<br>그만.</h1><p>우리 아이의 나이, 체중, 질환에<br>맞춘 개인화 건강관리</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i class="active"></i><i></i><i></i></div><button class="primary" data-onboarding-next>시작하기</button>${state.data.user ? '<button class="link" data-route="app">기존 데이터로 계속하기</button>' : '<button class="link" data-route="signup">이미 계정이 있나요? 로그인</button>'}</div></section>`, { nav: false, compact: true });
   }
   if (state.onboardingStep === 1) {
-    return appShell(`<section class="intro onboarding-white"><div class="onboarding-content"><div class="brand-symbol">${icon("food")}</div><h1>딱 맞는 사료·운동을<br>추천해드려요</h1><p>질환·알레르기 성분 자동 제외<br>나이·체중 기반 맞춤 추천</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i></i><i class="active"></i><i></i></div><button class="primary" data-onboarding-next>다음</button><button class="link" data-route="signup">건너뛰기</button></div></section>`, { nav: false, compact: true });
+    return appShell(`<section class="intro onboarding-white"><div class="onboarding-content"><div class="brand-symbol recommendation-symbol">${softEmojiBadge("🥩")}</div><h1>딱 맞는 사료·운동을<br>추천해드려요</h1><p>질환·알레르기 성분 자동 제외<br>나이·체중 기반 맞춤 추천</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i></i><i class="active"></i><i></i></div><button class="primary" data-onboarding-next>다음</button><button class="link" data-route="signup">건너뛰기</button></div></section>`, { nav: false, compact: true });
   }
   return appShell(`<section class="intro onboarding-white"><div class="onboarding-content"><div class="brand-symbol warning-symbol">${icon("alert")}</div><h1>이상 징후를 먼저<br>알려드려요</h1><p>식욕·체중·활동량 변화를 분석해<br>위험 신호를 조기에 감지</p></div><div class="onboarding-actions"><div class="onboarding-dots"><i></i><i></i><i class="active"></i></div><button class="primary" data-route="signup">시작하기</button><button class="link" data-route="signup">건너뛰기</button></div></section>`, { nav: false, compact: true });
 }
@@ -499,7 +503,7 @@ function renderPetForm() {
   if (state.petFormStep === 1) {
     return appShell(`<section class="page pet-register">${header}
       <form class="form pet-onboarding-form" data-pet-basic>
-        <div class="pet-photo icon-photo">${animalEmoji(draft.type)}<small>프로필 사진은 나중에 추가</small></div>
+        <div class="pet-photo-wrap"><div class="pet-photo icon-photo">${animalEmoji(draft.type)}</div><small>프로필 사진은 나중에 추가할 수 있어요</small></div>
         ${isDemoMode() ? '<button class="secondary compact-action" type="button" data-fill-demo-pet>예시 정보 채우기</button>' : ""}
         <label>이름 *<input name="name" value="${escapeHtml(draft.name)}" required placeholder="예: 몽치"></label>
         <div class="two-columns">
