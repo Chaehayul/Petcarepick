@@ -148,7 +148,7 @@ function initializeRoute() {
   else if (api.hasSession()) state.route = "splash";
   else if (!state.data.user) state.route = "splash";
   else if (isLoggedOut()) state.route = "signup";
-  else if (!state.data.pets.length) state.route = "pet-form";
+  else if (!state.data.pets.length) state.route = "pet-intro";
   else state.route = "app";
   history.replaceState({ route: state.route, tab: state.tab }, "", location.href);
 }
@@ -156,7 +156,7 @@ function initializeRoute() {
 async function bootstrapApp() {
   if (state.data.user?.demo) {
     state.bootstrapping = false;
-    state.route = "app";
+    state.route = state.data.pets.length ? "app" : "pet-intro";
     render();
     return;
   }
@@ -765,7 +765,7 @@ function simplifyOnboardingActions() {
     .forEach((element) => element.remove());
 }
 
-function startPortfolioDemo() {
+function startPortfolioDemoWithSampleData() {
   const today = localDate();
   const day = (offset) => {
     const date = new Date();
@@ -830,6 +830,35 @@ function startPortfolioDemo() {
   saveData();
   navigate("app");
   showToast("포트폴리오 데모로 시작했어요.");
+}
+
+function startPortfolioDemo() {
+  state.data = {
+    ...emptyData(),
+    user: { name: "포트폴리오 방문자", email: "demo@petcarepick.app", demo: true },
+  };
+  Object.assign(state.petDraft, {
+    type: "강아지",
+    name: "",
+    breed: "",
+    age: "",
+    weight: "",
+    gender: "남아",
+    neutered: "했어요",
+    conditions: [],
+    allergies: [],
+    routines: [],
+    reminders: { morning: true, evening: true, anomaly: true },
+  });
+  state.selectedPetId = "";
+  state.editingPetId = "";
+  state.petFormStep = 0;
+  state.onboardingStep = 0;
+  state.tab = "home";
+  setSession("demo");
+  saveData();
+  navigate("pet-intro");
+  showToast("데모 계정으로 시작했어요. 반려동물을 직접 등록해보세요.");
 }
 
 async function loadNearbyHospitals() {
