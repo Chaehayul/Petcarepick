@@ -53,6 +53,7 @@ const state = {
   showEventForm: false,
   editingEventId: "",
   calendarMonth: localDate().slice(0, 7),
+  selectedCalendarDate: localDate(),
   aiStatus: "unknown",
   aiError: "",
   chatSending: false,
@@ -330,6 +331,14 @@ function animalFace(type) {
   return { 강아지: "🐶", 고양이: "🐱", 앵무새: "🦜", 토끼: "🐰", 햄스터: "🐹", 기타: "🐾" }[type] || "🐾";
 }
 
+function breedExample(type) {
+  return { 강아지: "말티즈", 고양이: "코리안숏헤어", 앵무새: "사랑앵무", 햄스터: "골든 햄스터", 토끼: "미니렉스", 기타: "직접 입력" }[type] || "직접 입력";
+}
+
+function isBreedExample(value) {
+  return Object.values({ 강아지: "말티즈", 고양이: "코리안숏헤어", 앵무새: "사랑앵무", 햄스터: "골든 햄스터", 토끼: "미니렉스", 기타: "직접 입력" }).includes(value);
+}
+
 function softEmojiBadge(value, className = "") {
   return `<span class="soft-emoji-badge ${className}" aria-hidden="true">${value}</span>`;
 }
@@ -501,13 +510,14 @@ function renderPetForm() {
     <div class="registration-progress"><span style="width:${(state.petFormStep + 1) / 4 * 100}%"></span></div>
   </header>`;
   if (state.petFormStep === 1) {
+    const breedPlaceholder = `예: ${breedExample(draft.type)}`;
     return appShell(`<section class="page pet-register">${header}
       <form class="form pet-onboarding-form" data-pet-basic>
         <div class="pet-photo-wrap"><div class="pet-photo icon-photo">${animalEmoji(draft.type)}</div><small>프로필 사진은 나중에 추가할 수 있어요</small></div>
         ${isDemoMode() ? '<button class="secondary compact-action" type="button" data-fill-demo-pet>예시 정보 채우기</button>' : ""}
         <label>이름 *<input name="name" value="${escapeHtml(draft.name)}" required placeholder="예: 몽치"></label>
         <div class="two-columns">
-          <label>품종 *<input name="breed" value="${escapeHtml(draft.breed)}" required placeholder="예: 말티즈"></label>
+          <label>품종 *<input name="breed" value="${escapeHtml(draft.breed)}" required placeholder="${breedPlaceholder}"></label>
           <label>나이 (살) *<input name="age" type="number" min="0" max="40" value="${draft.age}" required placeholder="4"></label>
         </div>
         <div class="two-columns">
@@ -616,9 +626,11 @@ function renderProductCard(product, pet, index) {
 function renderCalendar(pet) {
   const events = state.data.events.filter((event) => event.petId === pet.id).sort((a, b) => a.date.localeCompare(b.date));
   const monthEvents = events.filter((event) => event.date.startsWith(state.calendarMonth));
+  const selectedEvents = events.filter((event) => event.date === state.selectedCalendarDate);
   return appShell(`<section class="page calendar-page">
     <header class="page-header row"><div><h1>캘린더</h1><p>${escapeHtml(pet.name)}의 건강 일정</p></div><button class="text-action" data-toggle-event>${state.showEventForm ? "닫기" : "+ 일정 추가"}</button></header>
     ${renderMonthCalendar(events)}
+    <section class="selected-day-panel"><div><strong>${formatDate(state.selectedCalendarDate)}</strong><p>${selectedEvents.length ? `${selectedEvents.length}개 일정` : "선택한 날짜에 일정이 없어요."}</p></div><button data-add-event-for-date="${state.selectedCalendarDate}">이 날짜에 추가</button></section>
     ${state.showEventForm ? renderEventForm(events.find((event) => event.id === state.editingEventId)) : ""}
     <section class="section-title"><div><h2>${Number(state.calendarMonth.slice(5))}월 전체 일정</h2><p>${monthEvents.length}개</p></div></section>
     <section class="timeline">${monthEvents.map((event) => `<article><i></i><time>${formatDate(event.date)}<small>${event.time || "시간 미정"}</small></time><div><em>${escapeHtml(event.type)}</em><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.memo || `${pet.name} 일정`)}</p></div><div class="event-actions"><button data-edit-event="${event.id}" aria-label="일정 수정">${icon("edit")}</button><button data-delete-event="${event.id}" aria-label="일정 삭제">${icon("trash")}</button></div></article>`).join("") || '<div class="empty-state"><strong>이 달에 등록된 일정이 없어요.</strong><p>예방접종이나 병원 일정을 추가해보세요.</p></div>'}</section>
@@ -631,7 +643,7 @@ function renderEventForm(event) {
     <div class="event-form-heading"><h2>${event ? "일정 수정" : "일정 등록"}</h2><button type="button" data-cancel-event aria-label="닫기">${icon("close")}</button></div>
     <label>일정 종류<select name="type">${["예방접종","건강검진","진료","복약","미용","기타"].map((type) => `<option ${selected(type)}>${type}</option>`).join("")}</select></label>
     <label>일정명<input name="title" required maxlength="50" value="${escapeHtml(event?.title || "")}" placeholder="예: 광견병 예방접종"></label>
-    <label>날짜<input name="date" type="date" value="${event?.date || localDate()}" required></label>
+    <label>날짜<input name="date" type="date" value="${event?.date || state.selectedCalendarDate || localDate()}" required></label>
     <label>시간<input name="time" type="time" value="${event?.time || "10:00"}"></label>
     <label class="full">메모<input name="memo" maxlength="120" value="${escapeHtml(event?.memo || "")}" placeholder="병원명이나 준비사항"></label>
     <button class="primary full">${event ? icon("check") : icon("plus")} ${event ? "변경사항 저장" : "일정 저장"}</button>
@@ -652,9 +664,8 @@ function renderMy(pet) {
       <button class="settings-row" data-route="chat"><span>${icon("message")}</span><div><strong>AI 헬스 매니저</strong><p>현재 프로필과 기록을 바탕으로 답변해요.</p></div>${icon("chevron")}</button>
       <button class="settings-row" data-replay-onboarding><span>${icon("replay")}</span><div><strong>서비스 소개 다시 보기</strong><p>온보딩 화면과 주요 기능 소개를 확인해요.</p></div>${icon("chevron")}</button>
     </div>
-    <h2 class="settings-heading">내 데이터</h2>
+    <h2 class="settings-heading">계정</h2>
     <div class="settings-group">
-      <button class="settings-row" data-export-data><span>${icon("download")}</span><div><strong>내 데이터 내려받기</strong><p>프로필, 기록과 일정을 JSON 파일로 저장해요.</p></div>${icon("chevron")}</button>
       <button class="settings-row" data-logout><span>${icon("logout")}</span><div><strong>${demo ? "데모 종료" : "로그아웃"}</strong><p>${demo ? "샘플 데이터를 지우고 처음 화면으로 돌아가요." : "내 데이터는 보관하고 로그인 화면으로 돌아가요."}</p></div>${icon("chevron")}</button>
     </div>
     ${demo ? "" : '<section class="danger-zone"><strong>계정 및 데이터 삭제</strong><p>서버에 저장된 계정, 반려동물, 건강 기록과 일정을 영구적으로 삭제합니다.</p><button data-delete-account>계정과 데이터 삭제</button></section>'}
@@ -786,7 +797,9 @@ function bindEvents() {
     navigate("pet-form");
   });
   app.querySelectorAll("[data-pet-type]").forEach((element) => element.addEventListener("click", () => {
+    const previousBreed = state.petDraft.breed;
     state.petDraft.type = element.dataset.petType;
+    if (!previousBreed || isBreedExample(previousBreed)) state.petDraft.breed = breedExample(state.petDraft.type);
     render();
   }));
   app.querySelector("[data-pet-next]")?.addEventListener("click", () => {
@@ -823,7 +836,23 @@ function bindEvents() {
   app.querySelectorAll("[data-calendar-shift]").forEach((element) => element.addEventListener("click", () => shiftCalendarMonth(Number(element.dataset.calendarShift))));
   app.querySelector("[data-calendar-today]")?.addEventListener("click", () => {
     state.calendarMonth = localDate().slice(0, 7);
+    state.selectedCalendarDate = localDate();
     render();
+  });
+  app.querySelectorAll("[data-calendar-date]").forEach((element) => element.addEventListener("click", () => {
+    state.selectedCalendarDate = element.dataset.calendarDate;
+    state.calendarMonth = state.selectedCalendarDate.slice(0, 7);
+    state.showEventForm = false;
+    state.editingEventId = "";
+    render();
+  }));
+  app.querySelector("[data-add-event-for-date]")?.addEventListener("click", (event) => {
+    state.selectedCalendarDate = event.currentTarget.dataset.addEventForDate;
+    state.calendarMonth = state.selectedCalendarDate.slice(0, 7);
+    state.editingEventId = "";
+    state.showEventForm = true;
+    render();
+    app.querySelector(".event-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   app.querySelectorAll("[data-edit-event]").forEach((element) => element.addEventListener("click", () => {
     state.editingEventId = element.dataset.editEvent;
@@ -863,7 +892,6 @@ function bindEvents() {
   app.querySelectorAll("[data-delete-event]").forEach((element) => element.addEventListener("click", () => deleteEvent(element.dataset.deleteEvent)));
   app.querySelector("[data-logout]")?.addEventListener("click", logout);
   app.querySelector("[data-replay-onboarding]")?.addEventListener("click", replayOnboarding);
-  app.querySelector("[data-export-data]")?.addEventListener("click", exportUserData);
   app.querySelector("[data-delete-account]")?.addEventListener("click", deleteAllData);
   app.querySelector("[data-dismiss-error]")?.addEventListener("click", () => {
     state.globalError = "";
@@ -1195,10 +1223,11 @@ function submitPetBasic(event) {
 }
 
 function fillDemoPetDraft() {
+  const type = state.petDraft.type || "강아지";
   Object.assign(state.petDraft, {
     name: "몽치",
-    type: state.petDraft.type || "강아지",
-    breed: state.petDraft.type === "고양이" ? "코리안숏헤어" : "말티즈",
+    type,
+    breed: breedExample(type),
     age: 4,
     weight: 4.2,
     gender: "남아",
@@ -1318,10 +1347,13 @@ async function submitEvent(event) {
   state.data.events = state.editingEventId
     ? state.data.events.map((item) => item.id === state.editingEventId ? nextEvent : item)
     : [...state.data.events, nextEvent];
+  state.selectedCalendarDate = nextEvent.date;
+  state.calendarMonth = nextEvent.date.slice(0, 7);
   saveData();
   state.showEventForm = false;
   state.editingEventId = "";
   showToast(wasEditing ? "일정이 수정됐어요." : "일정이 저장됐어요.");
+  render();
 }
 
 function closeEventForm() {
@@ -1481,22 +1513,6 @@ async function logout() {
 function replayOnboarding() {
   state.onboardingStep = 0;
   navigate("intro");
-}
-
-function exportUserData() {
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    version: 1,
-    data: state.data,
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `petcarepick-${localDate()}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-  showToast("내 데이터 파일을 준비했어요.");
 }
 
 async function deleteAllData() {
@@ -1665,9 +1681,11 @@ function renderMonthCalendar(events) {
     ...Array.from({ length: firstDay }, () => "<span></span>"),
     ...Array.from({ length: lastDate }, (_, index) => {
       const day = index + 1;
+      const dateValue = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+      const isSelected = dateValue === state.selectedCalendarDate;
       const eventCount = eventCounts.get(day) || 0;
-      return `<b class="${isToday ? "today" : ""} ${eventCount ? "has-event" : ""}">${day}${eventCount ? `<i aria-label="일정 ${eventCount}개"></i>` : ""}</b>`;
+      return `<button type="button" class="${isToday ? "today" : ""} ${isSelected ? "selected" : ""} ${eventCount ? "has-event" : ""}" data-calendar-date="${dateValue}" aria-label="${month + 1}월 ${day}일 선택">${day}${eventCount ? `<i aria-label="일정 ${eventCount}개"></i>` : ""}</button>`;
     }),
   ].join("");
   const currentMonth = state.calendarMonth === localDate().slice(0, 7);
@@ -1678,6 +1696,7 @@ function shiftCalendarMonth(offset) {
   const [year, month] = state.calendarMonth.split("-").map(Number);
   const date = new Date(year, month - 1 + offset, 1);
   state.calendarMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  state.selectedCalendarDate = `${state.calendarMonth}-01`;
   state.showEventForm = false;
   state.editingEventId = "";
   render();

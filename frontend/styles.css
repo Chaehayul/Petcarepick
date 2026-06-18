@@ -205,7 +205,8 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
 .dashboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .dashboard-header p { margin: 0 0 4px; color: var(--muted); }
 .dashboard-header h1 { margin: 0; font-size: 27px; }
-.avatar-button { width: 50px; height: 50px; border-radius: 16px; background: var(--brand-soft); font-size: 25px; }
+.avatar-button { width: 50px; height: 50px; display: grid; place-items: center; border-radius: 16px; background: var(--brand-soft); font-size: 25px; overflow: hidden; }
+.avatar-button .pet-emoji { width: 40px; height: 40px; border-radius: 14px; background: #fff; font-size: 24px; }
 .avatar-button .icon-badge { width: 100%; height: 100%; background: transparent; }
 .avatar-button .icon-badge svg { width: 28px; height: 28px; }
 
@@ -607,11 +608,17 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
 .calendar-today { display: block; margin: -3px auto 12px; padding: 6px 10px; border-radius: 999px; color: var(--brand); background: transparent; font-size: 10px; font-weight: 800; }
 .weekdays, .calendar-days { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 6px 3px; text-align: center; }
 .weekdays { margin-bottom: 6px; color: #9295a2; font-size: 10px; }
-.calendar-days b { position: relative; width: 38px; height: 38px; display: grid; place-items: center; justify-self: center; border-radius: 50%; font-size: 13px; font-weight: 750; }
-.calendar-days b.has-event { color: var(--brand); background: var(--brand-soft); }
-.calendar-days b.today { color: #fff; background: var(--brand); }
-.calendar-days b i { position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
-.calendar-days b.today i { background: #fff; }
+.calendar-days button { position: relative; width: 38px; height: 38px; display: grid; place-items: center; justify-self: center; border-radius: 50%; color: var(--ink); background: transparent; font-size: 13px; font-weight: 750; }
+.calendar-days button.has-event { color: var(--brand); background: var(--brand-soft); }
+.calendar-days button.today { color: #fff; background: var(--brand); }
+.calendar-days button.selected { box-shadow: inset 0 0 0 2px var(--brand); }
+.calendar-days button.today.selected { box-shadow: 0 0 0 3px rgba(91,76,224,.18); }
+.calendar-days button i { position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.calendar-days button.today i { background: #fff; }
+.selected-day-panel { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.selected-day-panel strong { display: block; font-size: 15px; }
+.selected-day-panel p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.selected-day-panel button { flex: 0 0 auto; padding: 10px 12px; border-radius: 12px; color: var(--brand); background: var(--brand-soft); font-size: 12px; font-weight: 850; }
 .event-form { margin-top: 15px; }
 .timeline article { position: relative; grid-template-columns: 4px 72px minmax(0,1fr) auto; overflow: hidden; }
 .timeline article > i { width: 4px; height: 100%; border-radius: 999px; background: var(--brand); }
